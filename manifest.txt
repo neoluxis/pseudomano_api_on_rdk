@@ -1,0 +1,16 @@
+in:
+  - app/*.py
+  - app/managers/*.py
+  - docs/*.md
+  - README.md
+  - README.en.md
+  - .env.template
+  - requirements.txt
+  - run.py
+  - Makefile
+  - Dockerfile
+  - cpp/Makefile
+  - cpp/main.cpp
+
+artifect:
+  - fastapi.zip
