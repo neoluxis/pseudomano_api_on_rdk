@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Body, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 
 from app.config import Settings, load_settings
@@ -30,6 +31,13 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     system_monitor = SystemMonitor()
 
     app = FastAPI(title="PI Infer API", version=settings.version)
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.on_event("shutdown")
     def _shutdown() -> None:
@@ -103,6 +111,14 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return FileResponse(path)
 
+    @app.post("/model/delete")
+    def delete_model(model: str = Query(...)) -> Dict[str, Any]:
+        try:
+            removed = model_manager.delete(model)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return {"deleted": str(removed)}
+
     @app.post("/config/upload")
     def upload_config(
         config: Optional[str] = Query(default=None),
@@ -130,6 +146,25 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return FileResponse(path)
+
+    @app.post("/config/update")
+    def update_config(
+        config: str = Query(...),
+        content: str = Body(..., embed=True),
+    ) -> Dict[str, Any]:
+        try:
+            updated = config_manager.update(config, content)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return {"config": str(updated)}
+
+    @app.post("/config/delete")
+    def delete_config(config: str = Query(...)) -> Dict[str, Any]:
+        try:
+            removed = config_manager.delete(config)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return {"deleted": str(removed)}
 
     @app.get("/status/system")
     def system_status(field: Optional[str] = Query(default=None)) -> Dict[str, Any]:
@@ -184,11 +219,14 @@ POST /model/upload?model=NAME (multipart file)
 GET  /models/list?wildcard=PATTERN
 GET  /model/using
 GET  /model/get?model=PATH
+POST /model/delete?model=PATH
 
 POST /config/upload?config=NAME (multipart file)
 GET  /configs/list?wildcard=PATTERN
 GET  /config/using
 GET  /config/get?config=PATH
+POST /config/update?config=PATH
+POST /config/delete?config=PATH
 
 GET  /status/system?field=memory_usage|cpu_load|temperature|uptime
 GET  /status/inference?field=...

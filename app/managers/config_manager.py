@@ -62,3 +62,28 @@ class ConfigManager:
         if not resolved.exists():
             raise FileNotFoundError("config not found")
         return resolved
+
+    def update(self, config_path: str, content: str) -> Path:
+        resolved = safe_resolve(self.config_dir, config_path)
+        if not resolved.exists():
+            raise FileNotFoundError("config not found")
+        resolved.write_text(content)
+        self._write_current(resolved)
+        return resolved
+
+    def delete(self, config_path: str) -> Path:
+        resolved = safe_resolve(self.config_dir, config_path)
+        if not resolved.exists():
+            raise FileNotFoundError("config not found")
+        resolved.unlink()
+        self._refresh_current(resolved)
+        return resolved
+
+    def _refresh_current(self, removed: Path) -> None:
+        current = self._read_current()
+        if current and current.resolve() == removed.resolve():
+            latest = self._latest_config()
+            if latest:
+                self._write_current(latest)
+            elif self.current_file.exists():
+                self.current_file.unlink()
