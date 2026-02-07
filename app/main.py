@@ -77,6 +77,14 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     def inference_status(field: Optional[str] = Query(default=None)) -> Dict[str, Any]:
         status = inference_manager.status()
         data = status.__dict__
+        
+        # If not running, show current defaults
+        if not data.get("running"):
+            current_model = model_manager.get_current()
+            current_config = config_manager.get_current()
+            data["current_model"] = current_model.name if current_model else None
+            data["current_config"] = current_config.name if current_config else None
+        
         if field:
             if field not in data:
                 raise HTTPException(status_code=400, detail="unknown field")
@@ -92,16 +100,16 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             target = model_manager.upload(file, model_name=model)
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"model": str(target)}
+        return {"model": target}
 
-    @app.get("/models/list")
+    @app.get("/model/list")
     def list_models(wildcard: Optional[str] = Query(default=None)) -> Dict[str, Any]:
         return {"models": model_manager.list_models(wildcard)}
 
-    @app.get("/model/using")
+    @app.get("/model/current")
     def current_model() -> Dict[str, Any]:
         current = model_manager.get_current()
-        return {"model": str(current) if current else None}
+        return {"model": current.name if current else None}
 
     @app.post("/model/select")
     def select_model(model: str = Query(...)) -> Dict[str, Any]:
@@ -109,9 +117,9 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             selected = model_manager.set_current(model)
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        return {"model": str(selected)}
+        return {"model": selected.name}
 
-    @app.get("/model/get")
+    @app.get("/model/download")
     def download_model(model: str = Query(...)) -> FileResponse:
         try:
             path = model_manager.get_model(model)
@@ -125,7 +133,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             removed = model_manager.delete(model)
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        return {"deleted": str(removed)}
+        return {"deleted": removed.name}
 
     @app.post("/config/upload")
     def upload_config(
@@ -136,16 +144,16 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             target = config_manager.upload(file, config_name=config)
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"config": str(target)}
+        return {"config": target}
 
-    @app.get("/configs/list")
+    @app.get("/config/list")
     def list_configs(wildcard: Optional[str] = Query(default=None)) -> Dict[str, Any]:
         return {"configs": config_manager.list_configs(wildcard)}
 
-    @app.get("/config/using")
+    @app.get("/config/current")
     def current_config() -> Dict[str, Any]:
         current = config_manager.get_current()
-        return {"config": str(current) if current else None}
+        return {"config": current.name if current else None}
 
     @app.post("/config/select")
     def select_config(config: str = Query(...)) -> Dict[str, Any]:
@@ -153,9 +161,9 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             selected = config_manager.set_current(config)
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        return {"config": str(selected)}
+        return {"config": selected.name}
 
-    @app.get("/config/get")
+    @app.get("/config/download")
     def download_config(config: str = Query(...)) -> FileResponse:
         try:
             path = config_manager.get_config(config)
@@ -172,7 +180,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             updated = config_manager.update(config, content)
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        return {"config": str(updated)}
+        return {"config": updated}
 
     @app.post("/config/delete")
     def delete_config(config: str = Query(...)) -> Dict[str, Any]:
@@ -180,7 +188,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             removed = config_manager.delete(config)
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        return {"deleted": str(removed)}
+        return {"deleted": removed.name}
 
     @app.get("/status/system")
     def system_status(field: Optional[str] = Query(default=None)) -> Dict[str, Any]:
@@ -232,19 +240,19 @@ POST /inference/stop
 GET  /inference/status?field=running|current_model|current_config|uptime|pid|log_file|last_error|exit_code
 
 POST /model/upload?model=NAME (multipart file)
-GET  /models/list?wildcard=PATTERN
-GET  /model/using
-POST /model/select?model=PATH
-GET  /model/get?model=PATH
-POST /model/delete?model=PATH
+GET  /model/list?wildcard=PATTERN
+GET  /model/current
+POST /model/select?model=NAME
+GET  /model/download?model=NAME
+POST /model/delete?model=NAME
 
 POST /config/upload?config=NAME (multipart file)
-GET  /configs/list?wildcard=PATTERN
-GET  /config/using
-POST /config/select?config=PATH
-GET  /config/get?config=PATH
-POST /config/update?config=PATH
-POST /config/delete?config=PATH
+GET  /config/list?wildcard=PATTERN
+GET  /config/current
+POST /config/select?config=NAME
+GET  /config/download?config=NAME
+POST /config/update?config=NAME (JSON body)
+POST /config/delete?config=NAME
 
 GET  /status/system?field=memory_usage|cpu_load|temperature|uptime
 GET  /status/inference?field=...

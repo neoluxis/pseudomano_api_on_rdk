@@ -16,7 +16,7 @@ services:
       PI_INFER_HOST: 0.0.0.0
       PI_INFER_PORT: "8000"
     volumes:
-      - ./data:/app/data
+      - data:/app/data
     restart: unless-stopped
 
   webui:
@@ -29,3 +29,6 @@ services:
     restart: unless-stopped
     depends_on:
       - api
+
+volumes:
+  data:

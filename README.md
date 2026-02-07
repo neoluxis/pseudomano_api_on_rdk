@@ -2,6 +2,8 @@
 
 用于管理推理 CLI 的 FastAPI 服务。
 
+学习 FastAPI 和 WebUI 构建所用，灵巧手项目所用
+
 ## 文档
 
 默认文档索引见 [docs/README.md](docs/README.md)。

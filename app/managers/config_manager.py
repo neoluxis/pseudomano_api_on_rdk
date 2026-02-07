@@ -42,7 +42,7 @@ class ConfigManager:
         self._write_current(resolved)
         return resolved
 
-    def upload(self, upload: UploadFile, config_name: Optional[str] = None) -> Path:
+    def upload(self, upload: UploadFile, config_name: Optional[str] = None) -> str:
         ensure_dir(self.config_dir)
         name = config_name or upload.filename or "config.yaml"
         safe_name = Path(name).name
@@ -50,12 +50,12 @@ class ConfigManager:
         content = upload.file.read()
         target.write_bytes(content)
         self._write_current(target)
-        return target
+        return safe_name
 
     def list_configs(self, pattern: Optional[str] = None) -> List[str]:
         ensure_dir(self.config_dir)
         glob_pattern = pattern or "*"
-        return [str(path) for path in sorted(self.config_dir.glob(glob_pattern)) if path.is_file()]
+        return [path.name for path in sorted(self.config_dir.glob(glob_pattern)) if path.is_file()]
 
     def get_config(self, config_path: str) -> Path:
         resolved = safe_resolve(self.config_dir, config_path)
@@ -63,13 +63,13 @@ class ConfigManager:
             raise FileNotFoundError("config not found")
         return resolved
 
-    def update(self, config_path: str, content: str) -> Path:
+    def update(self, config_path: str, content: str) -> str:
         resolved = safe_resolve(self.config_dir, config_path)
         if not resolved.exists():
             raise FileNotFoundError("config not found")
         resolved.write_text(content)
         self._write_current(resolved)
-        return resolved
+        return resolved.name
 
     def delete(self, config_path: str) -> Path:
         resolved = safe_resolve(self.config_dir, config_path)

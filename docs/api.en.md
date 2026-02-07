@@ -23,31 +23,46 @@ Base URL: `http://localhost:8000`
 
 ## Models
 
-- `POST /model/upload?model={new_model_path}`
+- `POST /model/upload?model={new_model_name}`
   - Uploads a model file and sets it as current.
 
-- `GET /models/list?wildcard={pattern}`
+- `GET /model/list?wildcard={pattern}`
   - Lists available models, supports glob patterns such as `*.onnx`.
 
-- `GET /model/using`
-  - Returns the current model file path.
+- `GET /model/current`
+  - Returns the current model file name.
 
-- `GET /model/get?model={model_path}`
-  - Downloads a model file by path (validated under model directory).
+- `POST /model/select?model={model_name}`
+  - Selects the current model.
+
+- `GET /model/download?model={model_name}`
+  - Downloads a model file by name.
+
+- `POST /model/delete?model={model_name}`
+  - Deletes a model file.
 
 ## Configs
 
-- `POST /config/upload?config={new_config_path}`
+- `POST /config/upload?config={new_config_name}`
   - Uploads a config file and sets it as current.
 
-- `GET /configs/list?wildcard={pattern}`
+- `GET /config/list?wildcard={pattern}`
   - Lists available configs, supports glob patterns such as `*.yaml`.
 
-- `GET /config/using`
-  - Returns the current config file path.
+- `GET /config/current`
+  - Returns the current config file name.
 
-- `GET /config/get?config={config_path}`
-  - Downloads a config file by path (validated under config directory).
+- `POST /config/select?config={config_name}`
+  - Selects the current config.
+
+- `GET /config/download?config={config_name}`
+  - Downloads a config file by name.
+
+- `POST /config/update?config={config_name}`
+  - Updates config content (JSON body: `{"content": "yaml_string"}`).
+
+- `POST /config/delete?config={config_name}`
+  - Deletes a config file.
 
 ## Status and logs
 
@@ -82,6 +97,19 @@ curl -X POST "http://localhost:8000/model/upload" \
 
 curl -X POST "http://localhost:8000/config/upload" \
   -F "file=@/path/to/config.yaml"
+```
+
+List models and configs:
+
+```bash
+curl "http://localhost:8000/model/list"
+curl "http://localhost:8000/config/list"
+```
+
+Start inference:
+
+```bash
+curl -X POST "http://localhost:8000/inference/start?model=model.onnx&config=config.yaml"
 ```
 
 Python example:

@@ -11,29 +11,33 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
-    <script
-      type="module"
-      src="https://unpkg.com/@material/web@1.0.0-rc.1/all.js"
-    ></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   </head>
   <body>
     <header class="topbar">
       <div>
         <div class="eyebrow">PI Infer</div>
-        <h1>Inference Control Room</h1>
+        <h1>Inference Dash Panel</h1>
         <p class="subtitle">API-driven runtime control and system telemetry</p>
       </div>
       <div class="topbar-actions">
-        <md-outlined-text-field
+        <label for="apiBase">API Base URL:</label>
+        <input
           id="apiBase"
-          label="API Base URL"
+          type="text"
           value="/api"
-          supporting-text="Used for all requests"
-        ></md-outlined-text-field>
-        <md-filled-button id="saveApiBase">Save</md-filled-button>
+          placeholder="Used for all requests"
+        />
+        <button id="saveApiBase">Save</button>
       </div>
     </header>
+
+    <div id="toast" class="toast">
+      <div class="toast-content">
+        <span id="toastMessage"></span>
+        <button id="toastClose" class="toast-close">&times;</button>
+      </div>
+    </div>
 
     <main class="page">
       <div class="tabs" role="tablist">
@@ -61,15 +65,15 @@
               </div>
               <div class="metric">
                 <div class="label">Model</div>
-                <div class="value mono" id="modelValue">-</div>
+                <div class="value mono clickable" id="modelValue" title="Click to change model">-</div>
               </div>
               <div class="metric">
                 <div class="label">Config</div>
-                <div class="value mono" id="configValue">-</div>
+                <div class="value mono clickable" id="configValue" title="Click to change config">-</div>
               </div>
             </div>
             <div class="hero-actions">
-              <md-filled-button id="toggleInference">Start Inference</md-filled-button>
+              <button id="toggleInference">Start Inference</button>
             </div>
           </section>
 
@@ -91,19 +95,31 @@
             </div>
             <canvas id="telemetryChart" height="160"></canvas>
             <div class="control-row">
-              <md-outlined-text-field
+              <label for="refreshRate">Auto refresh (sec):</label>
+              <input
                 id="refreshRate"
-                label="Auto refresh (sec)"
                 type="number"
                 value="5"
-              ></md-outlined-text-field>
-              <md-filled-button id="applyRefresh">Set Interval</md-filled-button>
+                min="1"
+                max="300"
+              />
+              <button id="applyRefresh">Set Interval</button>
             </div>
           </section>
         </div>
       </section>
 
       <section class="tab-panel" data-tab="models" role="tabpanel">
+        <div class="current-selection">
+          <div class="selection-item">
+            <span class="label">Current Model:</span>
+            <span class="value" id="currentModelDisplay">-</span>
+          </div>
+          <div class="selection-item">
+            <span class="label">Current Config:</span>
+            <span class="value" id="currentConfigDisplay">-</span>
+          </div>
+        </div>
         <div class="grid">
           <section class="card">
             <h3>Model & Config</h3>
@@ -203,8 +219,6 @@
               </div>
               <iframe id="netronFrame" class="netron-frame" title="Netron Viewer"></iframe>
             </div>
-
-            <div class="action-msg" id="actionMsg">Ready.</div>
           </section>
         </div>
       </section>

@@ -42,7 +42,7 @@ class ModelManager:
         self._write_current(resolved)
         return resolved
 
-    def upload(self, upload: UploadFile, model_name: Optional[str] = None) -> Path:
+    def upload(self, upload: UploadFile, model_name: Optional[str] = None) -> str:
         ensure_dir(self.model_dir)
         name = model_name or upload.filename or "model.bin"
         safe_name = Path(name).name
@@ -50,12 +50,12 @@ class ModelManager:
         content = upload.file.read()
         target.write_bytes(content)
         self._write_current(target)
-        return target
+        return safe_name
 
     def list_models(self, pattern: Optional[str] = None) -> List[str]:
         ensure_dir(self.model_dir)
         glob_pattern = pattern or "*"
-        return [str(path) for path in sorted(self.model_dir.glob(glob_pattern)) if path.is_file()]
+        return [path.name for path in sorted(self.model_dir.glob(glob_pattern)) if path.is_file()]
 
     def get_model(self, model_path: str) -> Path:
         resolved = safe_resolve(self.model_dir, model_path)

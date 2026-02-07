@@ -58,6 +58,82 @@ p {
   margin-top: 4px;
 }
 
+.action-msg {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: none;
+  animation: slideIn 0.3s ease-out;
+}
+
+.toast-content {
+  background: var(--card);
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  padding: 16px 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 300px;
+  max-width: 500px;
+}
+
+.toast.error .toast-content {
+  border-color: var(--danger);
+  background: rgba(255, 122, 122, 0.1);
+}
+
+.toast.ok .toast-content {
+  border-color: var(--primary);
+  background: rgba(88, 214, 255, 0.1);
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 12px;
+  opacity: 0.7;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
 .topbar-actions {
   display: flex;
   gap: 12px;
@@ -488,4 +564,136 @@ md-text-button {
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+/* Basic styles for native inputs and buttons */
+input, button {
+  font-family: "Sora", "Segoe UI", sans-serif;
+}
+
+input {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 14px;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px rgba(88, 214, 255, 0.35);
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(88, 214, 255, 0.2);
+  color: var(--primary);
+  box-shadow: 0 0 0 1px rgba(88, 214, 255, 0.35);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+button:hover {
+  background: rgba(88, 214, 255, 0.3);
+  box-shadow: 0 0 0 1px rgba(88, 214, 255, 0.5);
+}
+
+button:disabled {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-actions label {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.control-row label {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.hero-actions button {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.clickable {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.clickable:hover {
+  opacity: 0.7;
+}
+
+.current-selection {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 80%), var(--card);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.selection-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selection-item .label {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.selection-item .value {
+  color: var(--primary);
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.list-item.current {
+  background: rgba(88, 214, 255, 0.1);
+  border: 1px solid rgba(88, 214, 255, 0.3);
+  border-radius: 8px;
+}
+
+.list-item.current .list-path {
+  color: var(--primary);
+  font-weight: 600;
 }

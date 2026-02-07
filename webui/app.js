@@ -1,11 +1,18 @@
 const apiBaseInput = document.getElementById("apiBase");
 const saveApiBaseBtn = document.getElementById("saveApiBase");
 
+const toast = document.getElementById("toast");
+const toastMessage = document.getElementById("toastMessage");
+const toastClose = document.getElementById("toastClose");
+
 const runState = document.getElementById("runState");
 const pidValue = document.getElementById("pidValue");
 const uptimeValue = document.getElementById("uptimeValue");
 const modelValue = document.getElementById("modelValue");
 const configValue = document.getElementById("configValue");
+
+const currentModelDisplay = document.getElementById("currentModelDisplay");
+const currentConfigDisplay = document.getElementById("currentConfigDisplay");
 
 const toggleInferenceBtn = document.getElementById("toggleInference");
 
@@ -41,7 +48,6 @@ const modelList = document.getElementById("modelList");
 const configList = document.getElementById("configList");
 const clearModelBtn = document.getElementById("clearModel");
 const clearConfigBtn = document.getElementById("clearConfig");
-const actionMsg = document.getElementById("actionMsg");
 
 const tailLinesInput = document.getElementById("tailLines");
 const loadLogsBtn = document.getElementById("loadLogs");
@@ -73,8 +79,15 @@ let configDirty = false;
 let loadedConfigPath = "";
 let loadedConfigContent = "";
 
+// Current selections from API
+let currentModel = "";
+let currentConfig = "";
+
 const defaultApiBase = "/api";
 const savedApiBase = localStorage.getItem("piInferApiBase");
+
+const defaultRefreshRate = 5;
+const savedRefreshRate = localStorage.getItem("piInferRefreshRate");
 
 const getInputValue = (element) => {
   if (!element) {
@@ -113,6 +126,8 @@ const buildTimestampedName = (filename, baseOverride = "") => {
 };
 
 apiBaseInput.value = savedApiBase || getInputValue(apiBaseInput) || defaultApiBase;
+
+setInputValue(refreshRateInput, savedRefreshRate || getInputValue(refreshRateInput) || String(defaultRefreshRate));
 
 const setActiveTab = (tabId) => {
   tabButtons.forEach((button) => {
@@ -155,9 +170,19 @@ const resolveApiBaseUrl = () => {
 };
 
 const setAction = (message, tone = "muted") => {
-  actionMsg.textContent = message;
-  actionMsg.style.color =
-    tone === "error" ? "var(--danger)" : tone === "ok" ? "var(--primary)" : "var(--muted)";
+  // Show toast
+  toastMessage.textContent = message;
+  toast.className = `toast ${tone}`;
+  toast.style.display = "block";
+
+  // Auto hide after 5 seconds
+  setTimeout(() => {
+    toast.style.animation = "slideOut 0.3s ease-in";
+    setTimeout(() => {
+      toast.style.display = "none";
+      toast.style.animation = "";
+    }, 300);
+  }, 5000);
 };
 
 const updateToggleButton = (running) => {
@@ -178,6 +203,8 @@ const updateStatus = async () => {
   uptimeValue.textContent = formatDuration(data.uptime);
   modelValue.textContent = data.current_model || "-";
   configValue.textContent = data.current_config || "-";
+  if (currentModelDisplay) currentModelDisplay.textContent = data.current_model || "-";
+  if (currentConfigDisplay) currentConfigDisplay.textContent = data.current_config || "-";
   updateToggleButton(inferenceRunning);
 };
 
@@ -265,6 +292,10 @@ const refreshAll = async () => {
 const startInference = async () => {
   const model = getInputValue(modelPathInput).trim() || selectedModelPath;
   const config = getInputValue(configPathInput).trim() || selectedConfigPath;
+  if (!model || !config) {
+    setAction("Please select a model and config before starting inference.", "error");
+    return;
+  }
   const params = new URLSearchParams();
   if (model) params.set("model", model);
   if (config) params.set("config", config);
@@ -279,14 +310,14 @@ const stopInference = async () => {
 };
 
 const listModels = async () => {
-  const response = await apiFetch("/models/list");
+  const response = await apiFetch("/model/list");
   const data = await response.json();
   const filtered = (data.models || []).filter((pathValue) => !isHiddenPath(pathValue));
   renderModelList(filtered);
 };
 
 const listConfigs = async () => {
-  const response = await apiFetch("/configs/list");
+  const response = await apiFetch("/config/list");
   const data = await response.json();
   const filtered = (data.configs || []).filter((pathValue) => !isHiddenPath(pathValue));
   renderConfigList(filtered);
@@ -331,7 +362,7 @@ const uploadModelAndOpenNetron = async () => {
   selectedModelPath = modelPath;
   setInputValue(modelPathInput, modelPath);
   const base = resolveApiBaseUrl();
-  const modelUrl = `${base}/model/get?model=${encodeURIComponent(modelPath)}`;
+  const modelUrl = `${base}/model/download?model=${encodeURIComponent(modelPath)}`;
   const netronUrl = `https://netron.app/?url=${encodeURIComponent(modelUrl)}`;
   window.open(netronUrl, "_blank", "noopener");
   setAction("Model uploaded and opened in Netron.", "ok");
@@ -350,6 +381,9 @@ const selectModel = async (pathValue) => {
   const data = await response.json();
   selectedModelPath = data.model;
   setInputValue(modelPathInput, data.model);
+  // Update displays immediately
+  modelValue.textContent = data.model || "-";
+  if (currentModelDisplay) currentModelDisplay.textContent = data.model || "-";
   setAction("Current model updated.", "ok");
   await refreshAll();
 };
@@ -361,6 +395,9 @@ const selectConfig = async (pathValue) => {
   const data = await response.json();
   selectedConfigPath = data.config;
   setInputValue(configPathInput, data.config);
+  // Update displays immediately
+  configValue.textContent = data.config || "-";
+  if (currentConfigDisplay) currentConfigDisplay.textContent = data.config || "-";
   setAction("Current config updated.", "ok");
   await refreshAll();
 };
@@ -392,6 +429,9 @@ const renderModelList = (items) => {
   items.forEach((pathValue) => {
     const row = document.createElement("div");
     row.className = "list-item";
+    if (pathValue === currentModel) {
+      row.classList.add("current");
+    }
 
     const label = document.createElement("span");
     label.className = "list-path";
@@ -408,7 +448,7 @@ const renderModelList = (items) => {
     viewBtn.addEventListener("click", () => {
       selectedModelPath = pathValue;
       const base = resolveApiBaseUrl();
-      const modelUrl = `${base}/model/get?model=${encodeURIComponent(pathValue)}`;
+      const modelUrl = `${base}/model/download?model=${encodeURIComponent(pathValue)}`;
       netronFrame.src = `https://netron.app/?url=${encodeURIComponent(modelUrl)}`;
       setAction("Netron viewer loaded.", "ok");
     });
@@ -416,7 +456,7 @@ const renderModelList = (items) => {
     const dlBtn = document.createElement("md-text-button");
     dlBtn.textContent = "Download";
     dlBtn.addEventListener("click", () => {
-      downloadFile("/model/get", "model", pathValue).catch((error) =>
+      downloadFile("/model/download", "model", pathValue).catch((error) =>
         setAction(error.message, "error")
       );
     });
@@ -450,6 +490,9 @@ const renderConfigList = (items) => {
   items.forEach((pathValue) => {
     const row = document.createElement("div");
     row.className = "list-item";
+    if (pathValue === currentConfig) {
+      row.classList.add("current");
+    }
 
     const label = document.createElement("span");
     label.className = "list-path";
@@ -468,7 +511,7 @@ const renderConfigList = (items) => {
     const dlBtn = document.createElement("md-text-button");
     dlBtn.textContent = "Download";
     dlBtn.addEventListener("click", () => {
-      downloadFile("/config/get", "config", pathValue).catch((error) =>
+      downloadFile("/config/download", "config", pathValue).catch((error) =>
         setAction(error.message, "error")
       );
     });
@@ -505,7 +548,7 @@ const loadConfigContent = async (pathValue) => {
   selectedConfigPath = pathValue;
   setInputValue(configPathInput, pathValue);
   const response = await apiFetch(
-    `/config/get?config=${encodeURIComponent(pathValue)}&ts=${Date.now()}`,
+    `/config/download?config=${encodeURIComponent(pathValue)}&ts=${Date.now()}`,
     { cache: "no-store" }
   );
   const text = await response.text();
@@ -614,6 +657,7 @@ const applyRefresh = () => {
   loadHistory().catch(console.error);
   listModels().catch(console.error);
   listConfigs().catch(console.error);
+  localStorage.setItem("piInferRefreshRate", String(value));
   setAction(`Auto refresh: ${Math.round(intervalMs / 1000)}s`, "ok");
 };
 
@@ -689,7 +733,7 @@ openNetronBtn.addEventListener("click", () => {
   const target = selectedModelPath || getInputValue(modelPathInput).trim();
   if (target) {
     const base = resolveApiBaseUrl();
-    const modelUrl = `${base}/model/get?model=${encodeURIComponent(target)}`;
+    const modelUrl = `${base}/model/download?model=${encodeURIComponent(target)}`;
     const netronUrl = `https://netron.app/?url=${encodeURIComponent(modelUrl)}`;
     window.open(netronUrl, "_blank", "noopener");
     setAction("Netron opened in a new tab.", "ok");
@@ -732,19 +776,28 @@ uploadConfigBtn.addEventListener("click", () => {
 });
 
 downloadModelBtn.addEventListener("click", () => {
-  downloadFile("/model/get", "model", getInputValue(downloadModelPathInput).trim())
+  downloadFile("/model/download", "model", getInputValue(downloadModelPathInput).trim())
     .then(() => setAction("Model download started.", "ok"))
     .catch((error) => setAction(error.message, "error"));
 });
 
 downloadConfigBtn.addEventListener("click", () => {
-  downloadFile("/config/get", "config", getInputValue(downloadConfigPathInput).trim())
+  downloadFile("/config/download", "config", getInputValue(downloadConfigPathInput).trim())
     .then(() => setAction("Config download started.", "ok"))
     .catch((error) => setAction(error.message, "error"));
 });
 
 applyRefresh();
 setActiveTab("overview");
+
+toastClose.addEventListener("click", () => {
+  toast.style.animation = "slideOut 0.3s ease-in";
+  setTimeout(() => {
+    toast.style.display = "none";
+    toast.style.animation = "";
+  }, 300);
+});
+
 modelFileInput.addEventListener("change", () => { // Update label for model file input
   const label = document.getElementById("modelFileName");
   if (label) {
@@ -762,4 +815,15 @@ configFileInput.addEventListener("change", () => { // Update label for config fi
 configEditor.addEventListener("input", () => {
   const current = configEditor.value || "";
   configDirty = loadedConfigPath !== "" && current !== loadedConfigContent;
+});
+
+// Add click handlers for current model/config display
+modelValue.addEventListener("click", () => {
+  setActiveTab("models");
+  setAction("Switched to Models tab to change current model.", "ok");
+});
+
+configValue.addEventListener("click", () => {
+  setActiveTab("models");
+  setAction("Switched to Models tab to change current config.", "ok");
 });

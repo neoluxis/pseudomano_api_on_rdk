@@ -75,7 +75,7 @@ def test_model_config_upload_and_list(tmp_path: Path) -> None:
     )
     assert config_upload.status_code == 200
 
-    models = client.get("/models/list").json()["models"]
+    models = client.get("/model/list").json()["models"]
     configs = client.get("/configs/list").json()["configs"]
     assert any(path.endswith("model.onnx") for path in models)
     assert any(path.endswith("config.yaml") for path in configs)

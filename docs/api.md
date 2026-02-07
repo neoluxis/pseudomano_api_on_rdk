@@ -23,31 +23,46 @@ English version: [docs/api.en.md](docs/api.en.md)
 
 ## 模型
 
-- `POST /model/upload?model={new_model_path}`
+- `POST /model/upload?model={new_model_name}`
   - 上传模型文件并设为当前模型。
 
-- `GET /models/list?wildcard={pattern}`
+- `GET /model/list?wildcard={pattern}`
   - 列出可用模型，支持 `*.onnx` 等通配符。
 
-- `GET /model/using`
-  - 返回当前模型路径。
+- `GET /model/current`
+  - 返回当前模型名称。
 
-- `GET /model/get?model={model_path}`
-  - 按路径下载模型（在模型目录内验证）。
+- `POST /model/select?model={model_name}`
+  - 选择当前模型。
+
+- `GET /model/download?model={model_name}`
+  - 按名称下载模型。
+
+- `POST /model/delete?model={model_name}`
+  - 删除模型。
 
 ## 配置
 
-- `POST /config/upload?config={new_config_path}`
+- `POST /config/upload?config={new_config_name}`
   - 上传配置文件并设为当前配置。
 
-- `GET /configs/list?wildcard={pattern}`
+- `GET /config/list?wildcard={pattern}`
   - 列出可用配置，支持 `*.yaml` 等通配符。
 
-- `GET /config/using`
-  - 返回当前配置路径。
+- `GET /config/current`
+  - 返回当前配置名称。
 
-- `GET /config/get?config={config_path}`
-  - 按路径下载配置（在配置目录内验证）。
+- `POST /config/select?config={config_name}`
+  - 选择当前配置。
+
+- `GET /config/download?config={config_name}`
+  - 按名称下载配置。
+
+- `POST /config/update?config={config_name}`
+  - 更新配置内容（JSON body: `{"content": "yaml_string"}`）。
+
+- `POST /config/delete?config={config_name}`
+  - 删除配置。
 
 ## 状态与日志
 
@@ -82,6 +97,19 @@ curl -X POST "http://localhost:8000/model/upload" \
 
 curl -X POST "http://localhost:8000/config/upload" \
   -F "file=@/path/to/config.yaml"
+```
+
+列出模型和配置：
+
+```bash
+curl "http://localhost:8000/model/list"
+curl "http://localhost:8000/config/list"
+```
+
+启动推理：
+
+```bash
+curl -X POST "http://localhost:8000/inference/start?model=model.onnx&config=config.yaml"
 ```
 
 Python 示例：
