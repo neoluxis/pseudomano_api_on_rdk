@@ -24,17 +24,6 @@
         <h1>Inference Dash Panel</h1>
         <p class="subtitle">API-driven runtime control and system telemetry</p>
       </div>
-      <!-- API基础URL配置 -->
-      <div class="topbar-actions">
-        <label for="apiBase">API Base URL:</label>
-        <input
-          id="apiBase"
-          type="text"
-          value="/api"
-          placeholder="Used for all requests"
-        />
-        <button id="saveApiBase">Save</button>
-      </div>
     </header>
 
     <!-- 消息提示框 -->
@@ -47,11 +36,24 @@
 
     <main class="page">
       <!-- 标签页导航 -->
-      <div class="tabs" role="tablist">
-        <button class="tab-btn active" data-tab="overview" role="tab">Overview</button>
-        <button class="tab-btn" data-tab="models" role="tab">Models</button>
-        <button class="tab-btn" data-tab="history" role="tab">History</button>
-        <button class="tab-btn" data-tab="logs" role="tab">Logs</button>
+      <div class="tabs-container">
+        <div class="tabs" role="tablist">
+          <button class="tab-btn active" data-tab="overview" role="tab">Overview</button>
+          <button class="tab-btn" data-tab="models" role="tab">Models</button>
+          <button class="tab-btn" data-tab="configs" role="tab">Configs</button>
+          <button class="tab-btn" data-tab="history" role="tab">History</button>
+          <button class="tab-btn" data-tab="logs" role="tab">Logs</button>
+          <button class="tab-btn" data-tab="settings" role="tab">Settings</button>
+        
+        <div class="tabs-dropdown">
+          <button class="tabs-toggle" id="tabsToggle" aria-label="More tabs">
+            <span class="toggle-icon">⋮</span>
+          </button>
+          <div class="tabs-menu" id="tabsMenu">
+            <!-- Hidden tabs will be moved here dynamically -->
+          </div></div>
+        </div>
+
       </div>
 
       <!-- 概览标签页 -->
@@ -123,26 +125,21 @@
             <span class="label">Current Model:</span>
             <span class="value" id="currentModelDisplay">-</span>
           </div>
-          <div class="selection-item">
-            <span class="label">Current Config:</span>
-            <span class="value" id="currentConfigDisplay">-</span>
-          </div>
         </div>
-        <div class="grid">
-          <section class="card">
-            <h3>Model & Config</h3>
-            <div class="section-block">
-              <div class="label">Upload</div>
-              <div class="upload-options">
-                <label class="check-pill">
-                  <input id="autoName" type="checkbox" checked />
-                  Use timestamped names
-                </label>
-                <span class="hint">Uploads go to server model/config directories.</span>
-              </div>
-              <div class="upload-grid">
+        <div class="split-layout">
+          <div class="split-left">
+            <section class="card">
+              <h3>Model Operations</h3>
+              <div class="section-block">
+                <div class="label">Upload</div>
+                <div class="upload-options">
+                  <label class="check-pill">
+                    <input id="autoName" type="checkbox" checked />
+                    Use timestamped names
+                  </label>
+                  <span class="hint">Uploads go to server model directory.</span>
+                </div>
                 <div class="upload-block">
-                  <span class="label">Model</span>
                   <label class="file-button" for="modelFile">Choose file</label>
                   <input id="modelFile" class="file-input" type="file" />
                   <div id="modelFileName" class="file-name">No file selected.</div>
@@ -152,8 +149,70 @@
                   ></md-outlined-text-field>
                   <md-filled-button id="uploadModel">Upload Model</md-filled-button>
                 </div>
+              </div>
+
+              <div class="section-block">
+                <div class="label">Download</div>
+                <div class="control-row">
+                  <md-outlined-text-field
+                    id="downloadModelPath"
+                    label="Model path"
+                  ></md-outlined-text-field>
+                  <md-filled-button id="downloadModel">Download Model</md-filled-button>
+                </div>
+              </div>
+
+              <div class="list-row">
+                <md-filled-button id="listModels">Refresh Models</md-filled-button>
+                <md-text-button id="useModel">Use Selected Model</md-text-button>
+              </div>
+
+              <div class="list-block">
+                <div class="list-header">
+                  <span class="label">Available Models</span>
+                  <md-text-button id="clearModel">Clear</md-text-button>
+                </div>
+                <div class="list-output" id="modelList">No data yet.</div>
+              </div>
+            </section>
+          </div>
+
+          <div class="split-right">
+            <section class="card">
+              <div class="list-header">
+                <span class="label">Model Viewer</span>
+                <div class="editor-actions">
+                  <md-text-button id="openNetron">Open in Netron</md-text-button>
+                  <md-outlined-button id="deleteModel">Delete</md-outlined-button>
+                </div>
+              </div>
+              <iframe id="netronFrame" class="netron-frame" title="Netron Viewer"></iframe>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" data-tab="configs" role="tabpanel">
+        <div class="current-selection">
+          <div class="selection-item">
+            <span class="label">Current Config:</span>
+            <span class="value" id="currentConfigDisplay">-</span>
+          </div>
+        </div>
+        <div class="split-layout">
+          <div class="split-left">
+            <section class="card">
+              <h3>Config Operations</h3>
+              <div class="section-block">
+                <div class="label">Upload</div>
+                <div class="upload-options">
+                  <label class="check-pill">
+                    <input id="autoName" type="checkbox" checked />
+                    Use timestamped names
+                  </label>
+                  <span class="hint">Uploads go to server config directory.</span>
+                </div>
                 <div class="upload-block">
-                  <span class="label">Config</span>
                   <label class="file-button" for="configFile">Choose file</label>
                   <input id="configFile" class="file-input" type="file" />
                   <div id="configFileName" class="file-name">No file selected.</div>
@@ -164,48 +223,35 @@
                   <md-filled-button id="uploadConfig">Upload Config</md-filled-button>
                 </div>
               </div>
-            </div>
 
-            <div class="section-block">
-              <div class="label">Download</div>
-              <div class="download-grid">
-                <md-outlined-text-field
-                  id="downloadModelPath"
-                  label="Model path"
-                ></md-outlined-text-field>
-                <md-filled-button id="downloadModel">Download Model</md-filled-button>
-                <md-outlined-text-field
-                  id="downloadConfigPath"
-                  label="Config path"
-                ></md-outlined-text-field>
-                <md-filled-button id="downloadConfig">Download Config</md-filled-button>
-              </div>
-            </div>
-
-            <div class="list-row">
-              <md-filled-button id="listModels">Refresh Models</md-filled-button>
-              <md-filled-button id="listConfigs">Refresh Configs</md-filled-button>
-              <md-text-button id="usePaths">Use Selected Paths</md-text-button>
-            </div>
-
-            <div class="list-grid">
-              <div class="list-block">
-                <div class="list-header">
-                  <span class="label">Models</span>
-                  <md-text-button id="clearModel">Clear</md-text-button>
+              <div class="section-block">
+                <div class="label">Download</div>
+                <div class="control-row">
+                  <md-outlined-text-field
+                    id="downloadConfigPath"
+                    label="Config path"
+                  ></md-outlined-text-field>
+                  <md-filled-button id="downloadConfig">Download Config</md-filled-button>
                 </div>
-                <div class="list-output" id="modelList">No data yet.</div>
               </div>
+
+              <div class="list-row">
+                <md-filled-button id="listConfigs">Refresh Configs</md-filled-button>
+                <md-text-button id="useConfig">Use Selected Config</md-text-button>
+              </div>
+
               <div class="list-block">
                 <div class="list-header">
-                  <span class="label">Configs</span>
+                  <span class="label">Available Configs</span>
                   <md-text-button id="clearConfig">Clear</md-text-button>
                 </div>
                 <div class="list-output" id="configList">No data yet.</div>
               </div>
-            </div>
+            </section>
+          </div>
 
-            <div class="editor-block">
+          <div class="split-right">
+            <section class="card">
               <div class="list-header">
                 <span class="label">Config Editor</span>
                 <div class="editor-actions">
@@ -215,19 +261,8 @@
                 </div>
               </div>
               <textarea id="configEditor" class="config-editor" spellcheck="false"></textarea>
-            </div>
-
-            <div class="viewer-block">
-              <div class="list-header">
-                <span class="label">Model Viewer</span>
-                <div class="editor-actions">
-                  <md-text-button id="openNetron">Open in Netron</md-text-button>
-                  <md-outlined-button id="deleteModel">Delete</md-outlined-button>
-                </div>
-              </div>
-              <iframe id="netronFrame" class="netron-frame" title="Netron Viewer"></iframe>
-            </div>
-          </section>
+            </section>
+          </div>
         </div>
       </section>
 
@@ -263,6 +298,25 @@
               <md-filled-button id="loadLogs">Load Logs</md-filled-button>
             </div>
             <pre id="logOutput">Waiting for logs...</pre>
+          </section>
+        </div>
+      </section>
+
+      <section class="tab-panel" data-tab="settings" role="tabpanel">
+        <div class="grid">
+          <section class="card">
+            <h3>API Configuration</h3>
+            <div class="control-row">
+              <label for="apiBase">API Base URL:</label>
+              <input
+                id="apiBase"
+                type="text"
+                value="/api"
+                placeholder="Used for all requests"
+              />
+              <md-filled-button id="saveApiBase">Save</md-filled-button>
+            </div>
+            <p class="hint">Set the base URL for API requests. Supports relative paths (e.g., /api) or full URLs (e.g., http://localhost:8000/api).</p>
           </section>
         </div>
       </section>

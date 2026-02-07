@@ -23,10 +23,6 @@ const tempValue = document.getElementById("tempValue");
 const refreshRateInput = document.getElementById("refreshRate");
 const applyRefreshBtn = document.getElementById("applyRefresh");
 
-const modelPathInput = document.getElementById("modelPath");
-const configPathInput = document.getElementById("configPath");
-const usePathsBtn = document.getElementById("usePaths");
-
 const modelFileInput = document.getElementById("modelFile");
 const modelNameInput = document.getElementById("modelName");
 const uploadModelBtn = document.getElementById("uploadModel");
@@ -44,6 +40,8 @@ const downloadConfigBtn = document.getElementById("downloadConfig");
 
 const listModelsBtn = document.getElementById("listModels");
 const listConfigsBtn = document.getElementById("listConfigs");
+const useModelBtn = document.getElementById("useModel");
+const useConfigBtn = document.getElementById("useConfig");
 const modelList = document.getElementById("modelList");
 const configList = document.getElementById("configList");
 const clearModelBtn = document.getElementById("clearModel");
@@ -68,6 +66,10 @@ const deleteModelBtn = document.getElementById("deleteModel");
 
 const tabButtons = Array.from(document.querySelectorAll(".tab-btn"));
 const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
+const tabsContainer = document.querySelector(".tabs-container");
+const tabsDropdown = document.querySelector(".tabs-dropdown");
+const tabsToggle = document.getElementById("tabsToggle");
+const tabsMenu = document.getElementById("tabsMenu");
 
 let autoRefreshTimer = null;
 let telemetryChart = null;
@@ -88,6 +90,9 @@ const savedApiBase = localStorage.getItem("piInferApiBase");
 
 const defaultRefreshRate = 5;
 const savedRefreshRate = localStorage.getItem("piInferRefreshRate");
+
+const savedSelectedModelPath = localStorage.getItem("piInferSelectedModelPath");
+const savedSelectedConfigPath = localStorage.getItem("piInferSelectedConfigPath");
 
 const getInputValue = (element) => {
   if (!element) {
@@ -125,9 +130,17 @@ const buildTimestampedName = (filename, baseOverride = "") => {
   return `${base}_${stamp}${ext}`;
 };
 
-apiBaseInput.value = savedApiBase || getInputValue(apiBaseInput) || defaultApiBase;
+// Check URL parameters for API base
+const urlParams = new URLSearchParams(window.location.search);
+const urlApiBase = urlParams.get("api");
+
+apiBaseInput.value = urlApiBase || savedApiBase || getInputValue(apiBaseInput) || defaultApiBase;
 
 setInputValue(refreshRateInput, savedRefreshRate || getInputValue(refreshRateInput) || String(defaultRefreshRate));
+
+// Restore selected paths from localStorage
+selectedModelPath = savedSelectedModelPath || "";
+selectedConfigPath = savedSelectedConfigPath || "";
 
 const setActiveTab = (tabId) => {
   tabButtons.forEach((button) => {
@@ -136,6 +149,13 @@ const setActiveTab = (tabId) => {
   tabPanels.forEach((panel) => {
     panel.classList.toggle("active", panel.dataset.tab === tabId);
   });
+
+  // Load data for the newly active tab
+  if (tabId === 'models') {
+    listModels().catch(console.error);
+  } else if (tabId === 'configs') {
+    listConfigs().catch(console.error);
+  }
 };
 
 const formatDuration = (seconds) => {
@@ -290,8 +310,8 @@ const refreshAll = async () => {
 };
 
 const startInference = async () => {
-  const model = getInputValue(modelPathInput).trim() || selectedModelPath;
-  const config = getInputValue(configPathInput).trim() || selectedConfigPath;
+  const model = selectedModelPath;
+  const config = selectedConfigPath;
   if (!model || !config) {
     setAction("Please select a model and config before starting inference.", "error");
     return;
@@ -360,7 +380,6 @@ const uploadModelAndOpenNetron = async () => {
   const response = await uploadFile("/model/upload", modelFileInput, modelNameInput, "model");
   const modelPath = response.model;
   selectedModelPath = modelPath;
-  setInputValue(modelPathInput, modelPath);
   const base = resolveApiBaseUrl();
   const modelUrl = `${base}/model/download?model=${encodeURIComponent(modelPath)}`;
   const netronUrl = `https://netron.app/?url=${encodeURIComponent(modelUrl)}`;
@@ -380,7 +399,7 @@ const selectModel = async (pathValue) => {
   );
   const data = await response.json();
   selectedModelPath = data.model;
-  setInputValue(modelPathInput, data.model);
+  localStorage.setItem("piInferSelectedModelPath", selectedModelPath);
   // Update displays immediately
   modelValue.textContent = data.model || "-";
   if (currentModelDisplay) currentModelDisplay.textContent = data.model || "-";
@@ -394,7 +413,7 @@ const selectConfig = async (pathValue) => {
   );
   const data = await response.json();
   selectedConfigPath = data.config;
-  setInputValue(configPathInput, data.config);
+  localStorage.setItem("piInferSelectedConfigPath", selectedConfigPath);
   // Update displays immediately
   configValue.textContent = data.config || "-";
   if (currentConfigDisplay) currentConfigDisplay.textContent = data.config || "-";
@@ -426,10 +445,11 @@ const renderModelList = (items) => {
     modelList.textContent = "No models found.";
     return;
   }
+  const currentModelName = currentModel ? currentModel.split("/").pop() : null;
   items.forEach((pathValue) => {
     const row = document.createElement("div");
     row.className = "list-item";
-    if (pathValue === currentModel) {
+    if (pathValue === currentModelName) {
       row.classList.add("current");
     }
 
@@ -438,7 +458,6 @@ const renderModelList = (items) => {
     label.textContent = pathValue;
     label.addEventListener("click", () => {
       selectedModelPath = pathValue;
-      setInputValue(modelPathInput, pathValue);
       setAction("Model selected.", "ok");
     });
 
@@ -487,10 +506,11 @@ const renderConfigList = (items) => {
     configList.textContent = "No configs found.";
     return;
   }
+  const currentConfigName = currentConfig ? currentConfig.split("/").pop() : null;
   items.forEach((pathValue) => {
     const row = document.createElement("div");
     row.className = "list-item";
-    if (pathValue === currentConfig) {
+    if (pathValue === currentConfigName) {
       row.classList.add("current");
     }
 
@@ -499,7 +519,6 @@ const renderConfigList = (items) => {
     label.textContent = pathValue;
     label.addEventListener("click", () => {
       selectedConfigPath = pathValue;
-      setInputValue(configPathInput, pathValue);
       setAction("Config selected.", "ok");
     });
 
@@ -546,7 +565,6 @@ const loadConfigContent = async (pathValue) => {
     }
   }
   selectedConfigPath = pathValue;
-  setInputValue(configPathInput, pathValue);
   const response = await apiFetch(
     `/config/download?config=${encodeURIComponent(pathValue)}&ts=${Date.now()}`,
     { cache: "no-store" }
@@ -560,7 +578,7 @@ const loadConfigContent = async (pathValue) => {
 };
 
 const saveConfigContent = async () => {
-  const target = selectedConfigPath || getInputValue(configPathInput).trim();
+  const target = selectedConfigPath;
   if (!target) {
     throw new Error("Select a config to save.");
   }
@@ -649,14 +667,24 @@ const applyRefresh = () => {
     refreshAll().catch(console.error);
     loadLogs().catch(console.error);
     loadHistory().catch(console.error);
-    listModels().catch(console.error);
-    listConfigs().catch(console.error);
+    // Only refresh lists for active tabs
+    const activeTab = document.querySelector('.tab-btn.active');
+    if (activeTab) {
+      if (activeTab.dataset.tab === 'models') {
+        listModels().catch(console.error);
+      } else if (activeTab.dataset.tab === 'configs') {
+        listConfigs().catch(console.error);
+      }
+    }
   }, intervalMs);
   refreshAll().catch(console.error);
   loadLogs().catch(console.error);
   loadHistory().catch(console.error);
-  listModels().catch(console.error);
-  listConfigs().catch(console.error);
+  // Load lists for initially active tab
+  const activeTab = document.querySelector('.tab-btn.active');
+  if (activeTab && activeTab.dataset.tab === 'models') {
+    listModels().catch(console.error);
+  }
   localStorage.setItem("piInferRefreshRate", String(value));
   setAction(`Auto refresh: ${Math.round(intervalMs / 1000)}s`, "ok");
 };
@@ -680,22 +708,24 @@ toggleInferenceBtn.addEventListener("click", () => {
   }
 });
 
-usePathsBtn.addEventListener("click", () => {
-  const model = getInputValue(modelPathInput).trim() || selectedModelPath;
-  const config = getInputValue(configPathInput).trim() || selectedConfigPath;
-  if (!model && !config) {
-    setAction("Select a model or config first.", "error");
+useModelBtn.addEventListener("click", () => {
+  const model = selectedModelPath;
+  if (!model) {
+    setAction("Select a model first.", "error");
     return;
   }
-  const tasks = [];
-  if (model) {
-    tasks.push(selectModel(model));
-  }
-  if (config) {
-    tasks.push(selectConfig(config));
-  }
-  Promise.all(tasks).catch((error) => setAction(error.message, "error"));
+  selectModel(model).catch((error) => setAction(error.message, "error"));
 });
+
+useConfigBtn.addEventListener("click", () => {
+  const config = selectedConfigPath;
+  if (!config) {
+    setAction("Select a config first.", "error");
+    return;
+  }
+  selectConfig(config).catch((error) => setAction(error.message, "error"));
+});
+
 listModelsBtn.addEventListener("click", () => listModels().catch(console.error));
 listConfigsBtn.addEventListener("click", () => listConfigs().catch(console.error));
 loadLogsBtn.addEventListener("click", () => loadLogs().catch(console.error));
@@ -714,7 +744,7 @@ saveConfigBtn.addEventListener("click", () =>
   saveConfigContent().catch((error) => setAction(error.message, "error"))
 );
 deleteConfigBtn.addEventListener("click", () => {
-  const target = selectedConfigPath || getInputValue(configPathInput).trim();
+  const target = selectedConfigPath;
   if (!target) {
     setAction("Select a config first.", "error");
     return;
@@ -722,7 +752,7 @@ deleteConfigBtn.addEventListener("click", () => {
   deleteConfig(target).catch((error) => setAction(error.message, "error"));
 });
 deleteModelBtn.addEventListener("click", () => {
-  const target = selectedModelPath || getInputValue(modelPathInput).trim();
+  const target = selectedModelPath;
   if (!target) {
     setAction("Select a model first.", "error");
     return;
@@ -730,7 +760,7 @@ deleteModelBtn.addEventListener("click", () => {
   deleteModel(target).catch((error) => setAction(error.message, "error"));
 });
 openNetronBtn.addEventListener("click", () => {
-  const target = selectedModelPath || getInputValue(modelPathInput).trim();
+  const target = selectedModelPath;
   if (target) {
     const base = resolveApiBaseUrl();
     const modelUrl = `${base}/model/download?model=${encodeURIComponent(target)}`;
@@ -747,12 +777,12 @@ openNetronBtn.addEventListener("click", () => {
 });
 clearModelBtn.addEventListener("click", () => {
   selectedModelPath = "";
-  setInputValue(modelPathInput, "");
+  localStorage.removeItem("piInferSelectedModelPath");
   setAction("Model selection cleared.", "ok");
 });
 clearConfigBtn.addEventListener("click", () => {
   selectedConfigPath = "";
-  setInputValue(configPathInput, "");
+  localStorage.removeItem("piInferSelectedConfigPath");
   configEditor.value = "";
   setAction("Config selection cleared.", "ok");
 });
@@ -827,3 +857,101 @@ configValue.addEventListener("click", () => {
   setActiveTab("models");
   setAction("Switched to Models tab to change current config.", "ok");
 });
+
+// Dynamic tabs management for responsive design
+const updateTabsVisibility = () => {
+  if (!tabsContainer || !tabsDropdown || !tabsMenu) return;
+
+  const tabs = document.querySelector(".tabs");
+  const tabButtons = Array.from(tabs.querySelectorAll(".tab-btn"));
+  const containerWidth = tabsContainer.offsetWidth;
+  const tabGap = 10; // gap between tabs
+  const minVisibleTabs = 3; // Always show at least 3 tabs
+
+  let totalWidth = 0;
+  let visibleCount = 0;
+
+  // Clear existing dropdown items
+  tabsMenu.innerHTML = "";
+
+  // First pass: calculate widths and determine visibility
+  const tabWidths = tabButtons.map(tab => {
+    // Force layout calculation
+    tab.style.display = "flex";
+    const width = tab.offsetWidth;
+    return width;
+  });
+
+  // Second pass: decide which tabs to show/hide
+  for (let i = 0; i < tabButtons.length; i++) {
+    const tab = tabButtons[i];
+    const tabWidth = tabWidths[i] + tabGap;
+
+    // Always show first minVisibleTabs, or if there's enough space
+    if (i < minVisibleTabs || totalWidth + tabWidth <= containerWidth - 80) { // 80px for toggle button
+      tab.style.display = "flex";
+      totalWidth += tabWidth;
+      visibleCount++;
+    } else {
+      // Move to dropdown
+      tab.style.display = "none";
+      const dropdownItem = document.createElement("button");
+      dropdownItem.className = "tab-btn dropdown-item";
+      dropdownItem.setAttribute("data-tab", tab.getAttribute("data-tab"));
+      dropdownItem.setAttribute("role", "tab");
+      dropdownItem.textContent = tab.textContent;
+      if (tab.classList.contains("active")) {
+        dropdownItem.classList.add("active");
+      }
+      tabsMenu.appendChild(dropdownItem);
+    }
+  }
+
+  // Show/hide dropdown based on whether there are hidden tabs
+  const hasHiddenTabs = tabsMenu.children.length > 0;
+  tabsDropdown.style.display = hasHiddenTabs ? "block" : "none";
+};
+
+// Initialize tabs visibility
+const initTabsManagement = () => {
+  updateTabsVisibility();
+
+  // Update on window resize
+  let resizeTimeout;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(updateTabsVisibility, 100);
+  });
+
+  // Handle dropdown toggle
+  if (tabsToggle) {
+    tabsToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = tabsMenu.classList.contains("open");
+      tabsMenu.classList.toggle("open");
+    });
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener("click", (e) => {
+    if (!tabsDropdown.contains(e.target)) {
+      tabsMenu.classList.remove("open");
+    }
+  });
+
+  // Handle dropdown item clicks
+  tabsMenu.addEventListener("click", (e) => {
+    if (e.target.classList.contains("tab-btn")) {
+      const tabId = e.target.dataset.tab;
+      setActiveTab(tabId);
+      tabsMenu.classList.remove("open");
+    }
+  });
+};
+
+// Initialize when DOM is ready
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initTabsManagement);
+} else {
+  initTabsManagement();
+}
