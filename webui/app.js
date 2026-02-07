@@ -1,0 +1,765 @@
+const apiBaseInput = document.getElementById("apiBase");
+const saveApiBaseBtn = document.getElementById("saveApiBase");
+
+const runState = document.getElementById("runState");
+const pidValue = document.getElementById("pidValue");
+const uptimeValue = document.getElementById("uptimeValue");
+const modelValue = document.getElementById("modelValue");
+const configValue = document.getElementById("configValue");
+
+const toggleInferenceBtn = document.getElementById("toggleInference");
+
+const memValue = document.getElementById("memValue");
+const cpuValue = document.getElementById("cpuValue");
+const tempValue = document.getElementById("tempValue");
+
+const refreshRateInput = document.getElementById("refreshRate");
+const applyRefreshBtn = document.getElementById("applyRefresh");
+
+const modelPathInput = document.getElementById("modelPath");
+const configPathInput = document.getElementById("configPath");
+const usePathsBtn = document.getElementById("usePaths");
+
+const modelFileInput = document.getElementById("modelFile");
+const modelNameInput = document.getElementById("modelName");
+const uploadModelBtn = document.getElementById("uploadModel");
+
+const configFileInput = document.getElementById("configFile");
+const configNameInput = document.getElementById("configName");
+const uploadConfigBtn = document.getElementById("uploadConfig");
+
+const autoNameToggle = document.getElementById("autoName");
+
+const downloadModelPathInput = document.getElementById("downloadModelPath");
+const downloadConfigPathInput = document.getElementById("downloadConfigPath");
+const downloadModelBtn = document.getElementById("downloadModel");
+const downloadConfigBtn = document.getElementById("downloadConfig");
+
+const listModelsBtn = document.getElementById("listModels");
+const listConfigsBtn = document.getElementById("listConfigs");
+const modelList = document.getElementById("modelList");
+const configList = document.getElementById("configList");
+const clearModelBtn = document.getElementById("clearModel");
+const clearConfigBtn = document.getElementById("clearConfig");
+const actionMsg = document.getElementById("actionMsg");
+
+const tailLinesInput = document.getElementById("tailLines");
+const loadLogsBtn = document.getElementById("loadLogs");
+const logOutput = document.getElementById("logOutput");
+
+const historyLimitInput = document.getElementById("historyLimit");
+const loadHistoryBtn = document.getElementById("loadHistory");
+const historyTable = document.getElementById("historyTable");
+
+const configEditor = document.getElementById("configEditor");
+const loadConfigBtn = document.getElementById("loadConfig");
+const saveConfigBtn = document.getElementById("saveConfig");
+const deleteConfigBtn = document.getElementById("deleteConfig");
+
+const netronFrame = document.getElementById("netronFrame");
+const openNetronBtn = document.getElementById("openNetron");
+const deleteModelBtn = document.getElementById("deleteModel");
+
+const tabButtons = Array.from(document.querySelectorAll(".tab-btn"));
+const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
+
+let autoRefreshTimer = null;
+let telemetryChart = null;
+let telemetryPoints = [];
+let selectedModelPath = "";
+let selectedConfigPath = "";
+let inferenceRunning = false;
+let configDirty = false;
+let loadedConfigPath = "";
+let loadedConfigContent = "";
+
+const defaultApiBase = "/api";
+const savedApiBase = localStorage.getItem("piInferApiBase");
+
+const getInputValue = (element) => {
+  if (!element) {
+    return "";
+  }
+  if (typeof element.value === "string") {
+    return element.value;
+  }
+  const attribute = element.getAttribute("value");
+  return attribute || "";
+};
+
+const setInputValue = (element, value) => {
+  if (!element) {
+    return;
+  }
+  if (typeof element.value === "string") {
+    element.value = value;
+  } else {
+    element.setAttribute("value", value);
+  }
+};
+
+const buildTimestampedName = (filename, baseOverride = "") => {
+  const safeName = baseOverride || filename || "file";
+  const parts = safeName.split(".");
+  const ext = parts.length > 1 ? `.${parts.pop()}` : "";
+  const base = parts.join(".");
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(
+    now.getDate()
+  ).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}${String(
+    now.getMinutes()
+  ).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+  return `${base}_${stamp}${ext}`;
+};
+
+apiBaseInput.value = savedApiBase || getInputValue(apiBaseInput) || defaultApiBase;
+
+const setActiveTab = (tabId) => {
+  tabButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.tab === tabId);
+  });
+  tabPanels.forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.tab === tabId);
+  });
+};
+
+const formatDuration = (seconds) => {
+  if (!seconds && seconds !== 0) {
+    return "-";
+  }
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${hrs}h ${mins}m ${secs}s`;
+};
+
+const apiFetch = async (path, options = {}) => {
+  const base = (getInputValue(apiBaseInput).trim() || defaultApiBase).replace(/\/+$/, "");
+  const response = await fetch(`${base}${path}`, options);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || response.statusText);
+  }
+  return response;
+};
+
+const resolveApiBaseUrl = () => {
+  const base = getInputValue(apiBaseInput).trim() || defaultApiBase;
+  if (base.startsWith("http")) {
+    return base.replace(/\/+$/, "");
+  }
+  return `${window.location.origin}${base.startsWith("/") ? "" : "/"}${base.replace(
+    /\/+$/,
+    ""
+  )}`;
+};
+
+const setAction = (message, tone = "muted") => {
+  actionMsg.textContent = message;
+  actionMsg.style.color =
+    tone === "error" ? "var(--danger)" : tone === "ok" ? "var(--primary)" : "var(--muted)";
+};
+
+const updateToggleButton = (running) => {
+  toggleInferenceBtn.textContent = running ? "Stop Inference" : "Start Inference";
+  toggleInferenceBtn.style.background = running
+    ? "rgba(255, 122, 122, 0.2)"
+    : "rgba(88, 214, 255, 0.2)";
+  toggleInferenceBtn.style.color = running ? "var(--danger)" : "var(--primary)";
+};
+
+const updateStatus = async () => {
+  const response = await apiFetch("/inference/status");
+  const data = await response.json();
+  inferenceRunning = Boolean(data.running);
+  runState.textContent = data.running ? "Running" : "Stopped";
+  runState.style.color = data.running ? "var(--primary)" : "var(--danger)";
+  pidValue.textContent = data.pid ?? "-";
+  uptimeValue.textContent = formatDuration(data.uptime);
+  modelValue.textContent = data.current_model || "-";
+  configValue.textContent = data.current_config || "-";
+  updateToggleButton(inferenceRunning);
+};
+
+const updateTelemetry = async () => {
+  const response = await apiFetch("/status/system");
+  const data = await response.json();
+  const memory = data.memory_usage || {};
+  const cpu = data.cpu_load || {};
+  const temp = data.temperature || {};
+  memValue.textContent = `${memory.percent ?? 0}% (${Math.round(
+    (memory.used || 0) / 1024 / 1024
+  )} MB)`;
+  cpuValue.textContent = `Load ${cpu.load1 ?? 0}, CPU ${cpu.cpu_percent ?? 0}%`;
+  tempValue.textContent = `${temp.current ?? 0} C`;
+
+  telemetryPoints.push({
+    ts: new Date().toLocaleTimeString(),
+    cpu: cpu.cpu_percent ?? 0,
+    mem: memory.percent ?? 0,
+    temp: temp.current ?? 0,
+  });
+  telemetryPoints = telemetryPoints.slice(-12);
+  renderTelemetry();
+};
+
+const renderTelemetry = () => {
+  const ctx = document.getElementById("telemetryChart");
+  if (!telemetryChart) {
+    telemetryChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: telemetryPoints.map((p) => p.ts),
+        datasets: [
+          {
+            label: "CPU %",
+            data: telemetryPoints.map((p) => p.cpu),
+            borderColor: "#58d6ff",
+            tension: 0.4,
+          },
+          {
+            label: "Memory %",
+            data: telemetryPoints.map((p) => p.mem),
+            borderColor: "#f4bf6b",
+            tension: 0.4,
+          },
+          {
+            label: "Temp",
+            data: telemetryPoints.map((p) => p.temp),
+            borderColor: "#ff7a7a",
+            tension: 0.4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { labels: { color: "#c8d7e6" } },
+        },
+        scales: {
+          x: { ticks: { color: "#9db2c4" } },
+          y: { ticks: { color: "#9db2c4" } },
+        },
+      },
+    });
+  } else {
+    telemetryChart.data.labels = telemetryPoints.map((p) => p.ts);
+    telemetryChart.data.datasets[0].data = telemetryPoints.map((p) => p.cpu);
+    telemetryChart.data.datasets[1].data = telemetryPoints.map((p) => p.mem);
+    telemetryChart.data.datasets[2].data = telemetryPoints.map((p) => p.temp);
+    telemetryChart.update();
+  }
+};
+
+const refreshAll = async () => {
+  try {
+    await Promise.all([updateStatus(), updateTelemetry()]);
+  } catch (error) {
+    runState.textContent = "API Offline";
+    runState.style.color = "var(--danger)";
+    inferenceRunning = false;
+    updateToggleButton(false);
+  }
+};
+
+const startInference = async () => {
+  const model = getInputValue(modelPathInput).trim() || selectedModelPath;
+  const config = getInputValue(configPathInput).trim() || selectedConfigPath;
+  const params = new URLSearchParams();
+  if (model) params.set("model", model);
+  if (config) params.set("config", config);
+  const suffix = params.toString() ? `?${params}` : "";
+  await apiFetch(`/inference/start${suffix}`, { method: "POST" });
+  await refreshAll();
+};
+
+const stopInference = async () => {
+  await apiFetch("/inference/stop", { method: "POST" });
+  await refreshAll();
+};
+
+const listModels = async () => {
+  const response = await apiFetch("/models/list");
+  const data = await response.json();
+  const filtered = (data.models || []).filter((pathValue) => !isHiddenPath(pathValue));
+  renderModelList(filtered);
+};
+
+const listConfigs = async () => {
+  const response = await apiFetch("/configs/list");
+  const data = await response.json();
+  const filtered = (data.configs || []).filter((pathValue) => !isHiddenPath(pathValue));
+  renderConfigList(filtered);
+};
+
+const loadLogs = async () => {
+  const tail = getInputValue(tailLinesInput).trim();
+  const params = new URLSearchParams();
+  if (tail) params.set("tail", tail);
+  const suffix = params.toString() ? `?${params}` : "";
+  const response = await apiFetch(`/logs${suffix}`);
+  const text = await response.text();
+  logOutput.textContent = text || "No logs yet.";
+  logOutput.scrollTop = logOutput.scrollHeight; // Auto-scroll logs
+};
+
+const uploadFile = async (endpoint, fileInput, nameInput, nameKey) => {
+  if (!fileInput.files || !fileInput.files[0]) {
+    throw new Error("Please select a file first.");
+  }
+  const params = new URLSearchParams();
+  const name = getInputValue(nameInput).trim();
+  const useTimestamp = autoNameToggle ? autoNameToggle.checked : true;
+  const original = fileInput.files[0].name;
+  const finalName = useTimestamp
+    ? buildTimestampedName(original, name)
+    : name || "";
+  if (finalName) params.set(nameKey, finalName);
+  const suffix = params.toString() ? `?${params}` : "";
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+  const response = await apiFetch(`${endpoint}${suffix}`, {
+    method: "POST",
+    body: formData,
+  });
+  return response.json();
+};
+
+const uploadModelAndOpenNetron = async () => {
+  const response = await uploadFile("/model/upload", modelFileInput, modelNameInput, "model");
+  const modelPath = response.model;
+  selectedModelPath = modelPath;
+  setInputValue(modelPathInput, modelPath);
+  const base = resolveApiBaseUrl();
+  const modelUrl = `${base}/model/get?model=${encodeURIComponent(modelPath)}`;
+  const netronUrl = `https://netron.app/?url=${encodeURIComponent(modelUrl)}`;
+  window.open(netronUrl, "_blank", "noopener");
+  setAction("Model uploaded and opened in Netron.", "ok");
+  await listModels();
+};
+
+const isHiddenPath = (pathValue) => {
+  const name = pathValue.split("/").pop() || "";
+  return name.startsWith(".");
+};
+
+const selectModel = async (pathValue) => {
+  const response = await apiFetch(`/model/select?model=${encodeURIComponent(pathValue)}`,
+    { method: "POST" }
+  );
+  const data = await response.json();
+  selectedModelPath = data.model;
+  setInputValue(modelPathInput, data.model);
+  setAction("Current model updated.", "ok");
+  await refreshAll();
+};
+
+const selectConfig = async (pathValue) => {
+  const response = await apiFetch(`/config/select?config=${encodeURIComponent(pathValue)}`,
+    { method: "POST" }
+  );
+  const data = await response.json();
+  selectedConfigPath = data.config;
+  setInputValue(configPathInput, data.config);
+  setAction("Current config updated.", "ok");
+  await refreshAll();
+};
+
+const downloadFile = async (endpoint, paramName, pathValue) => {
+  if (!pathValue) {
+    throw new Error("Path is required.");
+  }
+  const params = new URLSearchParams();
+  params.set(paramName, pathValue);
+  const response = await apiFetch(`${endpoint}?${params.toString()}`);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = pathValue.split("/").pop() || "download";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
+const renderModelList = (items) => {
+  modelList.innerHTML = "";
+  if (!items.length) {
+    modelList.textContent = "No models found.";
+    return;
+  }
+  items.forEach((pathValue) => {
+    const row = document.createElement("div");
+    row.className = "list-item";
+
+    const label = document.createElement("span");
+    label.className = "list-path";
+    label.textContent = pathValue;
+    label.addEventListener("click", () => {
+      selectedModelPath = pathValue;
+      setInputValue(modelPathInput, pathValue);
+      setAction("Model selected.", "ok");
+    });
+
+    const actionWrap = document.createElement("div");
+    const viewBtn = document.createElement("md-text-button");
+    viewBtn.textContent = "View";
+    viewBtn.addEventListener("click", () => {
+      selectedModelPath = pathValue;
+      const base = resolveApiBaseUrl();
+      const modelUrl = `${base}/model/get?model=${encodeURIComponent(pathValue)}`;
+      netronFrame.src = `https://netron.app/?url=${encodeURIComponent(modelUrl)}`;
+      setAction("Netron viewer loaded.", "ok");
+    });
+
+    const dlBtn = document.createElement("md-text-button");
+    dlBtn.textContent = "Download";
+    dlBtn.addEventListener("click", () => {
+      downloadFile("/model/get", "model", pathValue).catch((error) =>
+        setAction(error.message, "error")
+      );
+    });
+
+    const useBtn = document.createElement("md-text-button");
+    useBtn.textContent = "Set Current";
+    useBtn.addEventListener("click", () =>
+      selectModel(pathValue).catch((error) => setAction(error.message, "error"))
+    );
+
+    const delBtn = document.createElement("md-text-button");
+    delBtn.textContent = "Delete";
+    delBtn.addEventListener("click", () => deleteModel(pathValue));
+
+    actionWrap.appendChild(viewBtn);
+    actionWrap.appendChild(dlBtn);
+    actionWrap.appendChild(useBtn);
+    actionWrap.appendChild(delBtn);
+    row.appendChild(label);
+    row.appendChild(actionWrap);
+    modelList.appendChild(row);
+  });
+};
+
+const renderConfigList = (items) => {
+  configList.innerHTML = "";
+  if (!items.length) {
+    configList.textContent = "No configs found.";
+    return;
+  }
+  items.forEach((pathValue) => {
+    const row = document.createElement("div");
+    row.className = "list-item";
+
+    const label = document.createElement("span");
+    label.className = "list-path";
+    label.textContent = pathValue;
+    label.addEventListener("click", () => {
+      selectedConfigPath = pathValue;
+      setInputValue(configPathInput, pathValue);
+      setAction("Config selected.", "ok");
+    });
+
+    const actionWrap = document.createElement("div");
+    const editBtn = document.createElement("md-text-button");
+    editBtn.textContent = "Edit";
+    editBtn.addEventListener("click", () => loadConfigContent(pathValue));
+
+    const dlBtn = document.createElement("md-text-button");
+    dlBtn.textContent = "Download";
+    dlBtn.addEventListener("click", () => {
+      downloadFile("/config/get", "config", pathValue).catch((error) =>
+        setAction(error.message, "error")
+      );
+    });
+
+    const useBtn = document.createElement("md-text-button");
+    useBtn.textContent = "Set Current";
+    useBtn.addEventListener("click", () =>
+      selectConfig(pathValue).catch((error) => setAction(error.message, "error"))
+    );
+
+    const delBtn = document.createElement("md-text-button");
+    delBtn.textContent = "Delete";
+    delBtn.addEventListener("click", () => deleteConfig(pathValue));
+
+    actionWrap.appendChild(editBtn);
+    actionWrap.appendChild(dlBtn);
+    actionWrap.appendChild(useBtn);
+    actionWrap.appendChild(delBtn);
+    row.appendChild(label);
+    row.appendChild(actionWrap);
+    configList.appendChild(row);
+  });
+};
+
+const loadConfigContent = async (pathValue) => {
+  if (configDirty && loadedConfigPath) {
+    const proceed = window.confirm(
+      "You have unsaved changes. Discard and reload?"
+    );
+    if (!proceed) {
+      return;
+    }
+  }
+  selectedConfigPath = pathValue;
+  setInputValue(configPathInput, pathValue);
+  const response = await apiFetch(
+    `/config/get?config=${encodeURIComponent(pathValue)}&ts=${Date.now()}`,
+    { cache: "no-store" }
+  );
+  const text = await response.text();
+  configEditor.value = text;
+  loadedConfigPath = pathValue;
+  loadedConfigContent = text;
+  configDirty = false;
+  setAction("Config loaded into editor.", "ok");
+};
+
+const saveConfigContent = async () => {
+  const target = selectedConfigPath || getInputValue(configPathInput).trim();
+  if (!target) {
+    throw new Error("Select a config to save.");
+  }
+  const response = await apiFetch(`/config/update?config=${encodeURIComponent(target)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: configEditor.value || "" }),
+  });
+  const data = await response.json();
+  loadedConfigPath = target;
+  loadedConfigContent = configEditor.value || "";
+  configDirty = false;
+  setAction(`Saved ${data.config}`, "ok");
+  await listConfigs();
+};
+
+const deleteModel = async (pathValue) => {
+  await apiFetch(`/model/delete?model=${encodeURIComponent(pathValue)}`, { method: "POST" });
+  if (selectedModelPath === pathValue) {
+    selectedModelPath = "";
+  }
+  setAction("Model deleted.", "ok");
+  await listModels();
+};
+
+const deleteConfig = async (pathValue) => {
+  await apiFetch(`/config/delete?config=${encodeURIComponent(pathValue)}`, { method: "POST" });
+  if (selectedConfigPath === pathValue) {
+    selectedConfigPath = "";
+    configEditor.value = "";
+  }
+  setAction("Config deleted.", "ok");
+  await listConfigs();
+};
+
+const loadHistory = async () => {
+  const limit = Number.parseInt(getInputValue(historyLimitInput), 10) || 10;
+  const response = await apiFetch(`/history?limit=${limit}`);
+  const data = await response.json();
+  const items = data.history || [];
+  historyTable.innerHTML = "";
+  const header = document.createElement("div");
+  header.className = "history-row header";
+  ["Start", "End", "Status", "Model", "Config"].forEach((text) => {
+    const cell = document.createElement("div");
+    cell.className = "history-cell";
+    cell.textContent = text;
+    header.appendChild(cell);
+  });
+  historyTable.appendChild(header);
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "history-row";
+    const cell = document.createElement("div");
+    cell.className = "history-cell";
+    cell.textContent = "No history yet.";
+    cell.style.gridColumn = "1 / -1";
+    empty.appendChild(cell);
+    historyTable.appendChild(empty);
+    return;
+  }
+  items.forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "history-row";
+    [
+      entry.start_time || "-",
+      entry.end_time || "-",
+      entry.status || "-",
+      entry.model || "-",
+      entry.config || "-",
+    ].forEach((value) => {
+      const cell = document.createElement("div");
+      cell.className = "history-cell";
+      cell.textContent = value;
+      row.appendChild(cell);
+    });
+    historyTable.appendChild(row);
+  });
+};
+
+const applyRefresh = () => {
+  const value = Number.parseInt(getInputValue(refreshRateInput), 10);
+  const intervalMs = Number.isFinite(value) && value > 0 ? value * 1000 : 5000;
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  autoRefreshTimer = setInterval(() => {
+    refreshAll().catch(console.error);
+    loadLogs().catch(console.error);
+    loadHistory().catch(console.error);
+    listModels().catch(console.error);
+    listConfigs().catch(console.error);
+  }, intervalMs);
+  refreshAll().catch(console.error);
+  loadLogs().catch(console.error);
+  loadHistory().catch(console.error);
+  listModels().catch(console.error);
+  listConfigs().catch(console.error);
+  setAction(`Auto refresh: ${Math.round(intervalMs / 1000)}s`, "ok");
+};
+
+saveApiBaseBtn.addEventListener("click", () => {
+  localStorage.setItem("piInferApiBase", getInputValue(apiBaseInput).trim());
+  refreshAll();
+});
+
+tabButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setActiveTab(button.dataset.tab);
+  });
+});
+
+toggleInferenceBtn.addEventListener("click", () => {
+  if (inferenceRunning) {
+    stopInference().catch((error) => setAction(error.message, "error"));
+  } else {
+    startInference().catch((error) => setAction(error.message, "error"));
+  }
+});
+
+usePathsBtn.addEventListener("click", () => {
+  const model = getInputValue(modelPathInput).trim() || selectedModelPath;
+  const config = getInputValue(configPathInput).trim() || selectedConfigPath;
+  if (!model && !config) {
+    setAction("Select a model or config first.", "error");
+    return;
+  }
+  const tasks = [];
+  if (model) {
+    tasks.push(selectModel(model));
+  }
+  if (config) {
+    tasks.push(selectConfig(config));
+  }
+  Promise.all(tasks).catch((error) => setAction(error.message, "error"));
+});
+listModelsBtn.addEventListener("click", () => listModels().catch(console.error));
+listConfigsBtn.addEventListener("click", () => listConfigs().catch(console.error));
+loadLogsBtn.addEventListener("click", () => loadLogs().catch(console.error));
+applyRefreshBtn.addEventListener("click", applyRefresh);
+refreshRateInput.addEventListener("change", applyRefresh);
+loadHistoryBtn.addEventListener("click", () => loadHistory().catch(console.error));
+loadConfigBtn.addEventListener("click", () => {
+  const target = selectedConfigPath || getInputValue(configPathInput).trim();
+  if (!target) {
+    setAction("Select a config first.", "error");
+    return;
+  }
+  loadConfigContent(target).catch((error) => setAction(error.message, "error"));
+});
+saveConfigBtn.addEventListener("click", () =>
+  saveConfigContent().catch((error) => setAction(error.message, "error"))
+);
+deleteConfigBtn.addEventListener("click", () => {
+  const target = selectedConfigPath || getInputValue(configPathInput).trim();
+  if (!target) {
+    setAction("Select a config first.", "error");
+    return;
+  }
+  deleteConfig(target).catch((error) => setAction(error.message, "error"));
+});
+deleteModelBtn.addEventListener("click", () => {
+  const target = selectedModelPath || getInputValue(modelPathInput).trim();
+  if (!target) {
+    setAction("Select a model first.", "error");
+    return;
+  }
+  deleteModel(target).catch((error) => setAction(error.message, "error"));
+});
+openNetronBtn.addEventListener("click", () => {
+  const target = selectedModelPath || getInputValue(modelPathInput).trim();
+  if (target) {
+    const base = resolveApiBaseUrl();
+    const modelUrl = `${base}/model/get?model=${encodeURIComponent(target)}`;
+    const netronUrl = `https://netron.app/?url=${encodeURIComponent(modelUrl)}`;
+    window.open(netronUrl, "_blank", "noopener");
+    setAction("Netron opened in a new tab.", "ok");
+    return;
+  }
+  if (modelFileInput.files && modelFileInput.files[0]) {
+    uploadModelAndOpenNetron().catch((error) => setAction(error.message, "error"));
+    return;
+  }
+  setAction("Select or upload a model first.", "error");
+});
+clearModelBtn.addEventListener("click", () => {
+  selectedModelPath = "";
+  setInputValue(modelPathInput, "");
+  setAction("Model selection cleared.", "ok");
+});
+clearConfigBtn.addEventListener("click", () => {
+  selectedConfigPath = "";
+  setInputValue(configPathInput, "");
+  configEditor.value = "";
+  setAction("Config selection cleared.", "ok");
+});
+
+uploadModelBtn.addEventListener("click", () => {
+  uploadFile("/model/upload", modelFileInput, modelNameInput, "model")
+    .then((data) => {
+      setAction(`Model uploaded: ${data.model}`, "ok");
+      return listModels();
+    })
+    .catch((error) => setAction(error.message, "error"));
+});
+
+uploadConfigBtn.addEventListener("click", () => {
+  uploadFile("/config/upload", configFileInput, configNameInput, "config")
+    .then((data) => {
+      setAction(`Config uploaded: ${data.config}`, "ok");
+      return listConfigs();
+    })
+    .catch((error) => setAction(error.message, "error"));
+});
+
+downloadModelBtn.addEventListener("click", () => {
+  downloadFile("/model/get", "model", getInputValue(downloadModelPathInput).trim())
+    .then(() => setAction("Model download started.", "ok"))
+    .catch((error) => setAction(error.message, "error"));
+});
+
+downloadConfigBtn.addEventListener("click", () => {
+  downloadFile("/config/get", "config", getInputValue(downloadConfigPathInput).trim())
+    .then(() => setAction("Config download started.", "ok"))
+    .catch((error) => setAction(error.message, "error"));
+});
+
+applyRefresh();
+setActiveTab("overview");
+modelFileInput.addEventListener("change", () => { // Update label for model file input
+  const label = document.getElementById("modelFileName");
+  if (label) {
+    label.textContent = modelFileInput.files?.[0]?.name || "No file selected.";
+  }
+});
+
+configFileInput.addEventListener("change", () => { // Update label for config file input
+  const label = document.getElementById("configFileName");
+  if (label) {
+    label.textContent = configFileInput.files?.[0]?.name || "No file selected.";
+  }
+});
+
+configEditor.addEventListener("input", () => {
+  const current = configEditor.value || "";
+  configDirty = loadedConfigPath !== "" && current !== loadedConfigContent;
+});

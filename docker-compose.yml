@@ -1,0 +1,31 @@
+services:
+  api:
+    build: .
+    image: pi-infer-api:latest
+    ports:
+      - "8000:8000"
+    environment:
+      PI_INFER_BASE_DIR: /app
+      PI_INFER_DATA_DIR: /app/data
+      PI_INFER_LOG_DIR: /app/data/logs
+      PI_INFER_MODEL_DIR: /app/data/models
+      PI_INFER_CONFIG_DIR: /app/data/configs
+      PI_INFER_HISTORY_FILE: /app/data/history/history.json
+      PI_INFER_BINARY: /app/infer
+      PI_INFER_LOG_RETENTION_DAYS: "7"
+      PI_INFER_HOST: 0.0.0.0
+      PI_INFER_PORT: "8000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  webui:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./webui:/usr/share/nginx/html:ro
+      - ./webui/nginx.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
+    depends_on:
+      - api

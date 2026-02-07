@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PI Infer Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script
+      type="module"
+      src="https://unpkg.com/@material/web@1.0.0-rc.1/all.js"
+    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">PI Infer</div>
+        <h1>Inference Control Room</h1>
+        <p class="subtitle">API-driven runtime control and system telemetry</p>
+      </div>
+      <div class="topbar-actions">
+        <md-outlined-text-field
+          id="apiBase"
+          label="API Base URL"
+          value="/api"
+          supporting-text="Used for all requests"
+        ></md-outlined-text-field>
+        <md-filled-button id="saveApiBase">Save</md-filled-button>
+      </div>
+    </header>
+
+    <main class="page">
+      <div class="tabs" role="tablist">
+        <button class="tab-btn active" data-tab="overview" role="tab">Overview</button>
+        <button class="tab-btn" data-tab="models" role="tab">Models</button>
+        <button class="tab-btn" data-tab="history" role="tab">History</button>
+        <button class="tab-btn" data-tab="logs" role="tab">Logs</button>
+      </div>
+
+      <section class="tab-panel active" data-tab="overview" role="tabpanel">
+        <div class="grid">
+          <section class="card hero">
+            <div class="hero-head">
+              <h2>Inference Status</h2>
+              <div class="status-pill" id="runState">Unknown</div>
+            </div>
+            <div class="hero-body">
+              <div class="metric">
+                <div class="label">PID</div>
+                <div class="value" id="pidValue">-</div>
+              </div>
+              <div class="metric">
+                <div class="label">Uptime</div>
+                <div class="value" id="uptimeValue">-</div>
+              </div>
+              <div class="metric">
+                <div class="label">Model</div>
+                <div class="value mono" id="modelValue">-</div>
+              </div>
+              <div class="metric">
+                <div class="label">Config</div>
+                <div class="value mono" id="configValue">-</div>
+              </div>
+            </div>
+            <div class="hero-actions">
+              <md-filled-button id="toggleInference">Start Inference</md-filled-button>
+            </div>
+          </section>
+
+          <section class="card">
+            <h3>System Telemetry</h3>
+            <div class="telemetry">
+              <div>
+                <div class="label">Memory</div>
+                <div class="value" id="memValue">-</div>
+              </div>
+              <div>
+                <div class="label">CPU Load</div>
+                <div class="value" id="cpuValue">-</div>
+              </div>
+              <div>
+                <div class="label">Temperature</div>
+                <div class="value" id="tempValue">-</div>
+              </div>
+            </div>
+            <canvas id="telemetryChart" height="160"></canvas>
+            <div class="control-row">
+              <md-outlined-text-field
+                id="refreshRate"
+                label="Auto refresh (sec)"
+                type="number"
+                value="5"
+              ></md-outlined-text-field>
+              <md-filled-button id="applyRefresh">Set Interval</md-filled-button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tab-panel" data-tab="models" role="tabpanel">
+        <div class="grid">
+          <section class="card">
+            <h3>Model & Config</h3>
+            <div class="section-block">
+              <div class="label">Upload</div>
+              <div class="upload-options">
+                <label class="check-pill">
+                  <input id="autoName" type="checkbox" checked />
+                  Use timestamped names
+                </label>
+                <span class="hint">Uploads go to server model/config directories.</span>
+              </div>
+              <div class="upload-grid">
+                <div class="upload-block">
+                  <span class="label">Model</span>
+                  <label class="file-button" for="modelFile">Choose file</label>
+                  <input id="modelFile" class="file-input" type="file" />
+                  <div id="modelFileName" class="file-name">No file selected.</div>
+                  <md-outlined-text-field
+                    id="modelName"
+                    label="Save as (optional)"
+                  ></md-outlined-text-field>
+                  <md-filled-button id="uploadModel">Upload Model</md-filled-button>
+                </div>
+                <div class="upload-block">
+                  <span class="label">Config</span>
+                  <label class="file-button" for="configFile">Choose file</label>
+                  <input id="configFile" class="file-input" type="file" />
+                  <div id="configFileName" class="file-name">No file selected.</div>
+                  <md-outlined-text-field
+                    id="configName"
+                    label="Save as (optional)"
+                  ></md-outlined-text-field>
+                  <md-filled-button id="uploadConfig">Upload Config</md-filled-button>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-block">
+              <div class="label">Download</div>
+              <div class="download-grid">
+                <md-outlined-text-field
+                  id="downloadModelPath"
+                  label="Model path"
+                ></md-outlined-text-field>
+                <md-filled-button id="downloadModel">Download Model</md-filled-button>
+                <md-outlined-text-field
+                  id="downloadConfigPath"
+                  label="Config path"
+                ></md-outlined-text-field>
+                <md-filled-button id="downloadConfig">Download Config</md-filled-button>
+              </div>
+            </div>
+
+            <div class="list-row">
+              <md-filled-button id="listModels">Refresh Models</md-filled-button>
+              <md-filled-button id="listConfigs">Refresh Configs</md-filled-button>
+              <md-text-button id="usePaths">Use Selected Paths</md-text-button>
+            </div>
+
+            <div class="list-grid">
+              <div class="list-block">
+                <div class="list-header">
+                  <span class="label">Models</span>
+                  <md-text-button id="clearModel">Clear</md-text-button>
+                </div>
+                <div class="list-output" id="modelList">No data yet.</div>
+              </div>
+              <div class="list-block">
+                <div class="list-header">
+                  <span class="label">Configs</span>
+                  <md-text-button id="clearConfig">Clear</md-text-button>
+                </div>
+                <div class="list-output" id="configList">No data yet.</div>
+              </div>
+            </div>
+
+            <div class="editor-block">
+              <div class="list-header">
+                <span class="label">Config Editor</span>
+                <div class="editor-actions">
+                  <md-text-button id="loadConfig">Load Selected</md-text-button>
+                  <md-filled-button id="saveConfig">Save</md-filled-button>
+                  <md-outlined-button id="deleteConfig">Delete</md-outlined-button>
+                </div>
+              </div>
+              <textarea id="configEditor" class="config-editor" spellcheck="false"></textarea>
+            </div>
+
+            <div class="viewer-block">
+              <div class="list-header">
+                <span class="label">Model Viewer</span>
+                <div class="editor-actions">
+                  <md-text-button id="openNetron">Open in Netron</md-text-button>
+                  <md-outlined-button id="deleteModel">Delete</md-outlined-button>
+                </div>
+              </div>
+              <iframe id="netronFrame" class="netron-frame" title="Netron Viewer"></iframe>
+            </div>
+
+            <div class="action-msg" id="actionMsg">Ready.</div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tab-panel" data-tab="history" role="tabpanel">
+        <div class="grid">
+          <section class="card">
+            <h3>History</h3>
+            <div class="control-row">
+              <md-outlined-text-field
+                id="historyLimit"
+                label="Limit"
+                type="number"
+                value="10"
+              ></md-outlined-text-field>
+              <md-filled-button id="loadHistory">Load History</md-filled-button>
+            </div>
+            <div class="history-table" id="historyTable"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tab-panel" data-tab="logs" role="tabpanel">
+        <div class="grid">
+          <section class="card logs">
+            <h3>Logs (tail)</h3>
+            <div class="control-row">
+              <md-outlined-text-field
+                id="tailLines"
+                label="Tail lines"
+                type="number"
+                value="120"
+              ></md-outlined-text-field>
+              <md-filled-button id="loadLogs">Load Logs</md-filled-button>
+            </div>
+            <pre id="logOutput">Waiting for logs...</pre>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>WebUI is static and talks to the API directly.</span>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>

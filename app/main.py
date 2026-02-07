@@ -103,6 +103,14 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         current = model_manager.get_current()
         return {"model": str(current) if current else None}
 
+    @app.post("/model/select")
+    def select_model(model: str = Query(...)) -> Dict[str, Any]:
+        try:
+            selected = model_manager.set_current(model)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return {"model": str(selected)}
+
     @app.get("/model/get")
     def download_model(model: str = Query(...)) -> FileResponse:
         try:
@@ -138,6 +146,14 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     def current_config() -> Dict[str, Any]:
         current = config_manager.get_current()
         return {"config": str(current) if current else None}
+
+    @app.post("/config/select")
+    def select_config(config: str = Query(...)) -> Dict[str, Any]:
+        try:
+            selected = config_manager.set_current(config)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return {"config": str(selected)}
 
     @app.get("/config/get")
     def download_config(config: str = Query(...)) -> FileResponse:
@@ -218,12 +234,14 @@ GET  /inference/status?field=running|current_model|current_config|uptime|pid|log
 POST /model/upload?model=NAME (multipart file)
 GET  /models/list?wildcard=PATTERN
 GET  /model/using
+POST /model/select?model=PATH
 GET  /model/get?model=PATH
 POST /model/delete?model=PATH
 
 POST /config/upload?config=NAME (multipart file)
 GET  /configs/list?wildcard=PATTERN
 GET  /config/using
+POST /config/select?config=PATH
 GET  /config/get?config=PATH
 POST /config/update?config=PATH
 POST /config/delete?config=PATH
