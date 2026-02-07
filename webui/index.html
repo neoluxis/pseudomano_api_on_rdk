@@ -1,25 +1,30 @@
 <!doctype html>
+<!-- PI Infer Web控制台主页面 -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PI Infer Console</title>
+    <!-- 字体预连接优化 -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&display=swap"
       rel="stylesheet"
     />
+    <!-- 样式表和图表库 -->
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   </head>
   <body>
+    <!-- 顶部导航栏 -->
     <header class="topbar">
       <div>
         <div class="eyebrow">PI Infer</div>
         <h1>Inference Dash Panel</h1>
         <p class="subtitle">API-driven runtime control and system telemetry</p>
       </div>
+      <!-- API基础URL配置 -->
       <div class="topbar-actions">
         <label for="apiBase">API Base URL:</label>
         <input
@@ -32,6 +37,7 @@
       </div>
     </header>
 
+    <!-- 消息提示框 -->
     <div id="toast" class="toast">
       <div class="toast-content">
         <span id="toastMessage"></span>
@@ -40,6 +46,7 @@
     </div>
 
     <main class="page">
+      <!-- 标签页导航 -->
       <div class="tabs" role="tablist">
         <button class="tab-btn active" data-tab="overview" role="tab">Overview</button>
         <button class="tab-btn" data-tab="models" role="tab">Models</button>
@@ -47,6 +54,7 @@
         <button class="tab-btn" data-tab="logs" role="tab">Logs</button>
       </div>
 
+      <!-- 概览标签页 -->
       <section class="tab-panel active" data-tab="overview" role="tabpanel">
         <div class="grid">
           <section class="card hero">
