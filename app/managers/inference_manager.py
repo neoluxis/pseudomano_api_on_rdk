@@ -81,14 +81,8 @@ class InferenceManager:
         self.log_manager.prune_old_logs()
         self.start_time = datetime.now()
         self.log_file = self.log_manager.create_log_file(self.start_time)
-        self.current_model = str(model_path)
-        if self.is_running():
-            raise RuntimeError("inference already running")
-        self.log_manager.prune_old_logs()
-        self.start_time = datetime.now()
-        self.log_file = self.log_manager.create_log_file(self.start_time)
-        self.current_model = str(model_path)
-        self.current_config = str(config_path)
+        self.current_model = model_path.name
+        self.current_config = config_path.name
         command = self._build_command(model_path, config_path)
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
         log_handle = self.log_file.open("a", encoding="utf-8")
