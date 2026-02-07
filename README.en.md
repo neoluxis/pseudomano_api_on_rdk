@@ -31,6 +31,19 @@ Shorter command:
 make run
 ```
 
+## Docker Compose
+
+Start API and WebUI with Compose:
+
+```bash
+docker compose up -d --build
+```
+
+Access:
+
+- API: `http://localhost:8000`
+- WebUI: `http://localhost:8080` (proxying API under `/api`)
+
 ## Tests
 
 ```bash

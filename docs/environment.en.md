@@ -54,3 +54,16 @@ cp .env.template .env
 ```bash
 ./.venv/bin/python run.py
 ```
+
+## Docker Compose
+
+Compose starts API and WebUI and mounts data under `/app/data`:
+
+```bash
+docker compose up -d --build
+```
+
+Access:
+
+- API: `http://localhost:8000`
+- WebUI: `http://localhost:8080` (proxying API under `/api`)

@@ -21,3 +21,16 @@ python3 -m venv ./.venv
 cp .env.template .env
 ./.venv/bin/python run.py
 ```
+
+## Docker Compose and WebUI
+
+Start API and WebUI with Compose:
+
+```bash
+docker compose up -d --build
+```
+
+Access:
+
+- API: `http://localhost:8000`
+- WebUI: `http://localhost:8080` (proxying API under `/api`)

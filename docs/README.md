@@ -21,3 +21,16 @@ python3 -m venv ./.venv
 cp .env.template .env
 ./.venv/bin/python run.py
 ```
+
+## Docker Compose 与 WebUI
+
+使用 Compose 启动 API 与 WebUI：
+
+```bash
+docker compose up -d --build
+```
+
+访问地址：
+
+- API: `http://localhost:8000`
+- WebUI: `http://localhost:8080`（通过 `/api` 访问 API）

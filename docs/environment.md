@@ -54,3 +54,16 @@ cp .env.template .env
 ```bash
 ./.venv/bin/python run.py
 ```
+
+## Docker Compose
+
+Compose 会启动 API 与 WebUI，并将数据目录挂载到 `/app/data`：
+
+```bash
+docker compose up -d --build
+```
+
+访问：
+
+- API: `http://localhost:8000`
+- WebUI: `http://localhost:8080`（通过 `/api` 访问 API）

@@ -9,6 +9,8 @@ in:
   - run.py
   - Makefile
   - Dockerfile
+  - docker-compose.yml
+  - webui/*
   - cpp/Makefile
   - cpp/main.cpp
 

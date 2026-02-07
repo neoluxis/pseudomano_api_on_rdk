@@ -8,7 +8,6 @@ __pycache__/
 infer
 infer.exe
 
-packages/
 data/
 
 dummy/

@@ -31,6 +31,19 @@ cp .env.template .env
 make run
 ```
 
+## Docker Compose
+
+使用 Compose 启动 API 与 WebUI：
+
+```bash
+docker compose up -d --build
+```
+
+访问：
+
+- API: `http://localhost:8000`
+- WebUI: `http://localhost:8080`（通过 `/api` 反向代理 API）
+
 ## 测试
 
 ```bash
