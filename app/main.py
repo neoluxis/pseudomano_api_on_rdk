@@ -7,12 +7,12 @@ PI Infer API 主应用文件
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import Body, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import Settings, load_settings
 from app.managers import (
@@ -47,8 +47,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     )
     system_monitor = SystemMonitor()
 
-    # 创建FastAPI应用，设置根路径为/api
-    app = FastAPI(title="PI Infer API", version=settings.version, root_path="/api")
+    app = FastAPI(title="PI Infer API", version=settings.version)
 
     # 配置CORS中间件，允许所有来源的跨域请求
     app.add_middleware(
@@ -58,12 +57,14 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         allow_headers=["*"],
     )
 
+    router = APIRouter()
+
     @app.on_event("shutdown")
     def _shutdown() -> None:
         """应用关闭时的清理工作"""
         inference_manager.shutdown()
 
-    @app.post("/inference/start")
+    @router.post("/inference/start")
     def start_inference(
         model: Optional[str] = Query(default=None),
         config: Optional[str] = Query(default=None),
@@ -98,7 +99,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             "log_file": str(inference_manager.log_file) if inference_manager.log_file else None,
         }
 
-    @app.post("/inference/stop")
+    @router.post("/inference/stop")
     def stop_inference() -> Dict[str, Any]:
         """
         停止当前运行的推理进程
@@ -115,7 +116,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         return {"status": "stopped"}
 
-    @app.get("/inference/status")
+    @router.get("/inference/status")
     def inference_status(field: Optional[str] = Query(default=None)) -> Dict[str, Any]:
         """
         获取推理进程的当前状态
@@ -142,7 +143,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             return {field: data[field]}
         return data
 
-    @app.post("/model/upload")
+    @router.post("/model/upload")
     def upload_model(
         model: Optional[str] = Query(default=None),
         file: UploadFile = File(...),
@@ -166,7 +167,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"model": target}
 
-    @app.get("/model/list")
+    @router.get("/model/list")
     def list_models(wildcard: Optional[str] = Query(default=None)) -> Dict[str, Any]:
         """
         获取模型文件列表
@@ -179,7 +180,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         """
         return {"models": model_manager.list_models(wildcard)}
 
-    @app.get("/model/current")
+    @router.get("/model/current")
     def current_model() -> Dict[str, Any]:
         """
         获取当前默认模型
@@ -190,7 +191,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         current = model_manager.get_current()
         return {"model": current.name if current else None}
 
-    @app.post("/model/select")
+    @router.post("/model/select")
     def select_model(model: str = Query(...)) -> Dict[str, Any]:
         """
         设置当前默认模型
@@ -210,7 +211,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return {"model": selected.name}
 
-    @app.get("/model/download")
+    @router.get("/model/download")
     def download_model(model: str = Query(...)) -> FileResponse:
         """
         下载指定的模型文件
@@ -230,7 +231,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return FileResponse(path)
 
-    @app.post("/model/delete")
+    @router.post("/model/delete")
     def delete_model(model: str = Query(...)) -> Dict[str, Any]:
         """
         删除指定的模型文件
@@ -250,7 +251,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return {"deleted": removed.name}
 
-    @app.post("/config/upload")
+    @router.post("/config/upload")
     def upload_config(
         config: Optional[str] = Query(default=None),
         file: UploadFile = File(...),
@@ -274,7 +275,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"config": target}
 
-    @app.get("/config/list")
+    @router.get("/config/list")
     def list_configs(wildcard: Optional[str] = Query(default=None)) -> Dict[str, Any]:
         """
         获取配置文件列表
@@ -287,7 +288,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         """
         return {"configs": config_manager.list_configs(wildcard)}
 
-    @app.get("/config/current")
+    @router.get("/config/current")
     def current_config() -> Dict[str, Any]:
         """
         获取当前默认配置
@@ -298,7 +299,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         current = config_manager.get_current()
         return {"config": current.name if current else None}
 
-    @app.post("/config/select")
+    @router.post("/config/select")
     def select_config(config: str = Query(...)) -> Dict[str, Any]:
         """
         设置当前默认配置
@@ -318,7 +319,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return {"config": selected.name}
 
-    @app.get("/config/download")
+    @router.get("/config/download")
     def download_config(config: str = Query(...)) -> FileResponse:
         """
         下载指定的配置文件
@@ -338,7 +339,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return FileResponse(path)
 
-    @app.post("/config/update")
+    @router.post("/config/update")
     def update_config(
         config: str = Query(...),
         content: str = Body(..., embed=True),
@@ -362,7 +363,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return {"config": updated}
 
-    @app.post("/config/delete")
+    @router.post("/config/delete")
     def delete_config(config: str = Query(...)) -> Dict[str, Any]:
         """
         删除指定的配置文件
@@ -382,7 +383,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return {"deleted": removed.name}
 
-    @app.get("/status/system")
+    @router.get("/status/system")
     def system_status(field: Optional[str] = Query(default=None)) -> Dict[str, Any]:
         """
         获取系统状态信息
@@ -400,7 +401,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             return {field: status[field]}
         return status
 
-    @app.get("/status/inference")
+    @router.get("/status/inference")
     def status_inference_alias(field: Optional[str] = Query(default=None)) -> Dict[str, Any]:
         """
         获取推理状态信息的别名端点
@@ -413,7 +414,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         """
         return inference_status(field)
 
-    @app.get("/logs", response_class=PlainTextResponse)
+    @router.get("/logs", response_class=PlainTextResponse)
     def read_logs(
         since: Optional[str] = Query(default=None),
         tail: Optional[int] = Query(default=None),
@@ -436,7 +437,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    @app.get("/history")
+    @router.get("/history")
     def get_history(limit: int = Query(default=10, ge=1)) -> Dict[str, Any]:
         """
         获取推理历史记录
@@ -449,7 +450,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         """
         return {"history": history_manager.list_history(limit)}
 
-    @app.get("/help", response_class=PlainTextResponse)
+    @router.get("/help", response_class=PlainTextResponse)
     def help_doc() -> str:
         """
         获取API帮助文档
@@ -459,7 +460,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         """
         return _help_text()
 
-    @app.get("/version")
+    @router.get("/version")
     def version_info() -> Dict[str, Any]:
         """
         获取版本信息
@@ -472,6 +473,17 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             "git_commit": settings.git_commit,
             "build_time": settings.build_time,
         }
+
+    app.include_router(router)
+    app.include_router(router, prefix="/api", include_in_schema=False)
+
+    webui_dir = settings.base_dir / "webui"
+    if webui_dir.is_dir():
+        @app.get("/ui", include_in_schema=False)
+        def ui_redirect() -> RedirectResponse:
+            return RedirectResponse(url="/ui/")
+
+        app.mount("/ui", StaticFiles(directory=webui_dir, html=True), name="webui")
 
     return app
 

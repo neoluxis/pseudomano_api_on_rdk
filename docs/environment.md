@@ -57,7 +57,7 @@ cp .env.template .env
 
 ## Docker Compose
 
-Compose 会启动 API 与 WebUI，并将数据目录挂载到 `/app/data`：
+Compose 会启动单个服务，并将数据目录挂载到 `/app/data`。该服务同时提供 API 与 WebUI：
 
 ```bash
 docker compose up -d --build
@@ -66,4 +66,4 @@ docker compose up -d --build
 访问：
 
 - API: `http://localhost:8000`
-- WebUI: `http://localhost:8080`（通过 `/api` 访问 API）
+- WebUI: `http://localhost:8000/ui`

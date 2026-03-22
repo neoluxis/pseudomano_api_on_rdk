@@ -23,6 +23,8 @@ def _build_settings(tmp_path: Path) -> Settings:
         history_file=history_file,
         infer_binary=infer_binary,
         log_retention_days=7,
+        host="127.0.0.1",
+        port=8000,
         version="0.1.0",
         build_time="2026-02-06T00:00:00Z",
         git_commit="test",
@@ -91,3 +93,25 @@ def test_system_status(tmp_path: Path) -> None:
     data = response.json()
     assert "memory_usage" in data
     assert "cpu_load" in data
+
+
+def test_api_prefix_and_ui_mount(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    webui_dir = settings.base_dir / "webui"
+    webui_dir.mkdir(parents=True, exist_ok=True)
+    (webui_dir / "index.html").write_text("<!doctype html><title>UI</title>")
+
+    app = create_app(settings)
+    client = TestClient(app)
+
+    prefixed = client.get("/api/version")
+    assert prefixed.status_code == 200
+    assert prefixed.json()["version"] == settings.version
+
+    ui_redirect = client.get("/ui", follow_redirects=False)
+    assert ui_redirect.status_code in (307, 308)
+    assert ui_redirect.headers["location"] == "/ui/"
+
+    ui_page = client.get("/ui/")
+    assert ui_page.status_code == 200
+    assert "<title>UI</title>" in ui_page.text

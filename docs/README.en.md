@@ -24,7 +24,7 @@ cp .env.template .env
 
 ## Docker Compose and WebUI
 
-Start API and WebUI with Compose:
+Start the single service that serves both the API and WebUI:
 
 ```bash
 docker compose up -d --build
@@ -33,4 +33,4 @@ docker compose up -d --build
 Access:
 
 - API: `http://localhost:8000`
-- WebUI: `http://localhost:8080` (proxying API under `/api`)
+- WebUI: `http://localhost:8000/ui`

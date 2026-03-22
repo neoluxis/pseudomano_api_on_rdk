@@ -24,7 +24,7 @@ cp .env.template .env
 
 ## Docker Compose 与 WebUI
 
-使用 Compose 启动 API 与 WebUI：
+使用 Compose 启动单个服务，同时提供 API 与 WebUI：
 
 ```bash
 docker compose up -d --build
@@ -33,4 +33,4 @@ docker compose up -d --build
 访问地址：
 
 - API: `http://localhost:8000`
-- WebUI: `http://localhost:8080`（通过 `/api` 访问 API）
+- WebUI: `http://localhost:8000/ui`

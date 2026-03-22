@@ -33,9 +33,18 @@ cp .env.template .env
 make run
 ```
 
+## 访问
+
+启动后可直接访问：
+
+- API: `http://localhost:8000`
+- WebUI: `http://localhost:8000/ui`
+
+前端默认通过同一服务下的 `/api` 访问接口，因此不再需要单独启动 WebUI。
+
 ## Docker Compose
 
-使用 Compose 启动 API 与 WebUI：
+使用 Compose 启动单个服务（同时提供 API 与 WebUI）：
 
 ```bash
 docker compose up -d --build
@@ -44,7 +53,7 @@ docker compose up -d --build
 访问：
 
 - API: `http://localhost:8000`
-- WebUI: `http://localhost:8080`（通过 `/api` 反向代理 API）
+- WebUI: `http://localhost:8000/ui`
 
 ## 测试
 
